@@ -1,0 +1,19 @@
+schema: spec-driven
+
+context: |
+  Projekt: LoopTalk, ein Online-Tool für regelmäßige Austauschtermine.
+  Sprache der Specs und der Oberfläche: Deutsch. Anforderungen nutzen die
+  Schlüsselwörter SHALL / MUST, damit `openspec validate` sie erkennt.
+
+  Tech-Stack:
+  - Node.js >= 20, TypeScript
+  - Express als HTTP-Server
+  - SQLite als Datenbank
+  - openid-client (v6) für den Login über Dex (OIDC, Authorization Code + PKCE)
+  - Server-Sent Events für Live-Updates
+  - Schlankes Frontend ohne schweres Framework
+
+  Konventionen:
+  - Domänenlogik als reine Funktionen, Zufall injizierbar, vollständig unit-getestet
+  - Zustandsändernde Aktionen in einer DB-Transaktion
+  - Keine Geheimnisse im Repo, Konfiguration per Umgebungsvariablen

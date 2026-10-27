@@ -1,0 +1,78 @@
+# Tests, komplett in Containern:
+#   docker compose -f compose.test.yaml run --rm test   Lint, Typen, Unit-, Integrations- und API-Tests
+#   docker compose -f compose.test.yaml run --rm e2e    Ende-zu-Ende-Tests mit Playwright
+name: looptalk-test
+
+services:
+  test:
+    build: { context: ., target: dev }
+    command: sh -c "npm run lint && npm run typecheck && npm test"
+    environment:
+      TEST_DATABASE_URL: postgres://looptalk:looptalk@db-test:5432/postgres
+    depends_on:
+      db-test: { condition: service_healthy }
+
+  db-test:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: looptalk
+      POSTGRES_PASSWORD: looptalk
+    tmpfs: [/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U looptalk"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+  # --- Ende-zu-Ende: gebautes Produktions-Image gegen echte Dex und PostgreSQL ---
+  e2e:
+    build: { context: ., target: e2e }
+    environment:
+      E2E_BASE_URL: http://looptalk:3000
+    volumes:
+      - ./e2e/test-results:/app/e2e/test-results
+      - ./e2e/playwright-report:/app/e2e/playwright-report
+    depends_on:
+      looptalk: { condition: service_healthy }
+
+  # Nicht „app“ nennen: Chromium erzwingt für .app per HSTS-Preload HTTPS.
+  looptalk:
+    image: looptalk-test-app
+    build: { context: ., target: runtime }
+    environment: &app-env
+      BASE_URL: http://looptalk:3000
+      DATABASE_URL: postgres://looptalk:looptalk@db-e2e:5432/looptalk
+      SESSION_SECRET: e2e-only-secret-0123456789abcdef0123456789
+      DEX_ISSUER: http://dex:5556/dex
+      OIDC_CLIENT_ID: looptalk
+      OIDC_CLIENT_SECRET: looptalk-dev-secret
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+      dex: { condition: service_started }
+
+  migrate:
+    image: looptalk-test-app
+    build: { context: ., target: runtime }
+    command: ["node", "dist/migrate.js"]
+    environment: *app-env
+    depends_on:
+      db-e2e: { condition: service_healthy }
+
+  db-e2e:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: looptalk
+      POSTGRES_PASSWORD: looptalk
+      POSTGRES_DB: looptalk
+    tmpfs: [/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U looptalk -d looptalk"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+  dex:
+    image: ghcr.io/dexidp/dex:v2.44.0
+    command: ["dex", "serve", "/etc/dex/config.yaml"]
+    volumes:
+      - ./docker/dex.test.yaml:/etc/dex/config.yaml:ro

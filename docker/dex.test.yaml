@@ -1,0 +1,21 @@
+# Dex für die Ende-zu-Ende-Tests im Docker-Netz. Testnutzer: anna, ben, carla, dora
+# (E-Mail <name>@example.com), Passwort jeweils "password".
+issuer: http://dex:5556/dex
+storage:
+  type: memory
+web:
+  http: 0.0.0.0:5556
+oauth2:
+  skipApprovalScreen: true
+enablePasswordDB: true
+staticClients:
+  - id: looptalk
+    name: LoopTalk
+    secret: looptalk-dev-secret
+    redirectURIs:
+      - http://looptalk:3000/auth/callback
+staticPasswords:
+  - { email: anna@example.com, username: Anna, userID: 7c2e1f9a-0001-4000-8000-000000000001, hash: "$2a$10$2b2cU8CPhOTaGrs1HRQuAueS7JTT5ZHsHSzYiFPm1leZck7Mc8T4W" }
+  - { email: ben@example.com, username: Ben, userID: 7c2e1f9a-0002-4000-8000-000000000002, hash: "$2a$10$2b2cU8CPhOTaGrs1HRQuAueS7JTT5ZHsHSzYiFPm1leZck7Mc8T4W" }
+  - { email: carla@example.com, username: Carla, userID: 7c2e1f9a-0003-4000-8000-000000000003, hash: "$2a$10$2b2cU8CPhOTaGrs1HRQuAueS7JTT5ZHsHSzYiFPm1leZck7Mc8T4W" }
+  - { email: dora@example.com, username: Dora, userID: 7c2e1f9a-0004-4000-8000-000000000004, hash: "$2a$10$2b2cU8CPhOTaGrs1HRQuAueS7JTT5ZHsHSzYiFPm1leZck7Mc8T4W" }

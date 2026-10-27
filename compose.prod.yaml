@@ -1,0 +1,63 @@
+# Betrieb: cp .env.example .env  (Werte eintragen), dann
+#   docker compose -f compose.prod.yaml up -d --build
+# Die App lauscht nur auf 127.0.0.1:3000; davor gehört ein Reverse Proxy mit TLS.
+# Optional Dex mitstarten: --profile dex (Konfiguration in ./docker/dex.yaml anlegen).
+name: looptalk
+
+x-app-env: &app-env
+  BASE_URL: ${BASE_URL:?BASE_URL fehlt}
+  SESSION_SECRET: ${SESSION_SECRET:?SESSION_SECRET fehlt}
+  DATABASE_URL: ${DATABASE_URL:-postgres://${POSTGRES_USER:-looptalk}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD fehlt}@db:5432/${POSTGRES_DB:-looptalk}}
+  DEX_ISSUER: ${DEX_ISSUER:?DEX_ISSUER fehlt}
+  DEX_INTERNAL_URL: ${DEX_INTERNAL_URL:-}
+  OIDC_CLIENT_ID: ${OIDC_CLIENT_ID:-looptalk}
+  OIDC_CLIENT_SECRET: ${OIDC_CLIENT_SECRET:?OIDC_CLIENT_SECRET fehlt}
+
+services:
+  app:
+    image: looptalk:latest
+    build: { context: ., target: runtime }
+    environment: *app-env
+    ports:
+      - "127.0.0.1:3000:3000"
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+    restart: unless-stopped
+
+  # Einmaliger Job vor jedem App-Start: Datenbank auf den aktuellen Stand bringen.
+  migrate:
+    image: looptalk:latest
+    build: { context: ., target: runtime }
+    command: ["node", "dist/migrate.js"]
+    environment: *app-env
+    depends_on:
+      db: { condition: service_healthy }
+    restart: "no"
+
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-looptalk}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD fehlt}
+      POSTGRES_DB: ${POSTGRES_DB:-looptalk}
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+
+  dex:
+    profiles: [dex]
+    image: ghcr.io/dexidp/dex:v2.44.0
+    command: ["dex", "serve", "/etc/dex/config.yaml"]
+    volumes:
+      - ./docker/dex.yaml:/etc/dex/config.yaml:ro
+    ports:
+      - "127.0.0.1:5556:5556"
+    restart: unless-stopped
+
+volumes:
+  db-data:

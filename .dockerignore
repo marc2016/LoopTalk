@@ -1,0 +1,9 @@
+**/node_modules
+**/dist
+.git
+.env
+openspec
+.claude
+.agents
+**/test-results
+**/playwright-report

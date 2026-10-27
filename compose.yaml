@@ -1,0 +1,75 @@
+# Entwicklung: docker compose up  →  http://localhost:5173
+name: looptalk
+
+x-dev: &dev
+  build: { context: ., target: dev }
+  volumes:
+    - .:/app
+    # node_modules aus dem Image verwenden, nicht die des Hosts
+    - /app/node_modules
+    - /app/apps/server/node_modules
+    - /app/apps/web/node_modules
+    - /app/packages/shared/node_modules
+
+services:
+  server:
+    <<: *dev
+    command: npm run dev -w @looptalk/server
+    working_dir: /app
+    environment:
+      NODE_ENV: development
+      PORT: 3000
+      BASE_URL: http://localhost:5173
+      DATABASE_URL: postgres://looptalk:looptalk@db:5432/looptalk
+      SESSION_SECRET: dev-only-secret-change-me-0123456789abcdef
+      DEX_ISSUER: http://localhost:5556/dex
+      DEX_INTERNAL_URL: http://dex:5556
+      OIDC_CLIENT_ID: looptalk
+      OIDC_CLIENT_SECRET: looptalk-dev-secret
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+      dex: { condition: service_started }
+
+  migrate:
+    <<: *dev
+    command: npx -w @looptalk/server tsx src/migrate.ts
+    environment:
+      DATABASE_URL: postgres://looptalk:looptalk@db:5432/looptalk
+    depends_on:
+      db: { condition: service_healthy }
+
+  web:
+    <<: *dev
+    command: npm run dev -w @looptalk/web
+    environment:
+      BACKEND_URL: http://server:3000
+    ports:
+      - "5173:5173"
+    depends_on: [server]
+
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: looptalk
+      POSTGRES_PASSWORD: looptalk
+      POSTGRES_DB: looptalk
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    ports:
+      - "127.0.0.1:55432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U looptalk -d looptalk"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+  dex:
+    image: ghcr.io/dexidp/dex:v2.44.0
+    command: ["dex", "serve", "/etc/dex/config.yaml"]
+    volumes:
+      - ./docker/dex.dev.yaml:/etc/dex/config.yaml:ro
+    ports:
+      - "5556:5556"
+
+volumes:
+  db-data:

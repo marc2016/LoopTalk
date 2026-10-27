@@ -1,0 +1,32 @@
+{
+  "name": "looptalk",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "packages/*",
+    "apps/*",
+    "e2e"
+  ],
+  "scripts": {
+    "build": "npm run build -w @looptalk/web && npm run build -w @looptalk/server",
+    "lint": "eslint .",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "test": "npm run test -w @looptalk/shared -w @looptalk/server -w @looptalk/web --if-present",
+    "test:e2e": "npm run test -w @looptalk/e2e"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.5",
+    "eslint": "^9.39.5",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "globals": "^17.13.0",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.72.1"
+  },
+  "allowScripts": {
+    "esbuild": true,
+    "fsevents": false
+  }
+}
