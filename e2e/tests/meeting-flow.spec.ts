@@ -107,6 +107,15 @@ test("zwei Personen arbeiten live auf einem Board und schließen einen Termin ab
   await expect(anna.getByTestId("next-protocol-hint")).toHaveText(/Ben protokolliert beim nächsten Termin/);
 
   // Anna beendet den Termin: Thema rückt weiter, Ben protokolliert, Anna wird gezogen
+  // Andeutung beim Darüberfahren: Karte rutscht ein Stück Richtung nächste Spalte
+  await anna.getByRole("button", { name: "Termin beenden" }).hover();
+  await expect(annaCard).toHaveAttribute("data-preview", "advance");
+  await expect
+    .poll(() => annaCard.evaluate((el) => getComputedStyle(el).translate))
+    .not.toBe("none");
+  await anna.mouse.move(0, 0);
+  await expect(anna.locator("[data-preview]")).toHaveCount(0);
+
   // Vorschau: nur bei Anna, das Board bleibt sichtbar, Abbrechen ändert nichts
   await anna.getByRole("button", { name: "Termin beenden" }).click();
   const confirm = anna.getByRole("alertdialog");

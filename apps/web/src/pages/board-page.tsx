@@ -64,7 +64,7 @@ export function BoardPage() {
                 aria-label={life.title}
                 data-testid={`column-${column}`}
                 className={cn(
-                  "flex h-full flex-col gap-2.5 rounded-xl p-3 md:min-h-72",
+                  "flex h-full flex-col gap-3.5 rounded-xl p-3 md:min-h-72",
                   last ? "bg-last-round" : "bg-column",
                 )}
               >
@@ -136,8 +136,8 @@ export function BoardPage() {
                 <>
                   <span
                     className={cn(
-                      "absolute top-6 -right-4 z-10 hidden w-4 justify-center md:flex",
-                      previewing ? "text-primary" : "text-muted-foreground/60",
+                      "absolute top-6 -right-4 z-10 hidden w-4 justify-center transition-colors md:flex",
+                      previewing ? "text-primary motion-safe:animate-nudge" : "text-muted-foreground/60",
                     )}
                     aria-hidden
                   >

@@ -41,6 +41,13 @@
     --radius-2xl: calc(var(--radius) * 1.8);
     --radius-3xl: calc(var(--radius) * 2.2);
     --radius-4xl: calc(var(--radius) * 2.6);
+
+    /* Pfeile zwischen den Spalten stupsen während der Vorschau zur nächsten Spalte */
+    --animate-nudge: nudge 1.2s ease-in-out infinite;
+    @keyframes nudge {
+        0%, 100% { transform: translateX(0); }
+        50% { transform: translateX(3px); }
+    }
 }
 
 :root {

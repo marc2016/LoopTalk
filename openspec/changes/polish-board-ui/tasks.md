@@ -19,6 +19,7 @@
 - [x] 3.1 Modalen `AlertDialog` für „Termin beenden“ durch eine nicht modale Bestätigungsleiste am unteren Rand ersetzen (`role="alertdialog"`, Fokus hinein, Escape bricht ab, Hinweis auf nächsten Protokollanten bzw. „Keine Themen auf dem Board“); per Tastatur bedienbar
 - [x] 3.2 Zustand `endPreview` in `BoardPage`, an Spalten und Karten durchreichen: „→ Zweite Runde“ / „→ Letzte Runde“ bzw. blass mit „wird archiviert“; Hover und Fokus auf „Termin beenden“ zeigen die Vorschau als Andeutung; Abbrechen stellt die normale Ansicht wieder her
 - [x] 3.3 Bestätigung schließt sich automatisch, wenn sich Version oder Status des Termins ändern (z. B. jemand anderes hat beendet); mit zwei Browserfenstern geprüft
+- [x] 3.4 Andeutung beim Darüberfahren animieren: Karten rutschen sanft Richtung nächste Spalte, archivierte blenden halb aus, Etiketten gleiten ein (ohne die Karte zu vergrößern), Pfeile zwischen den Spalten stupsen; bei reduzierter Bewegung statisch; Ende-zu-Ende-Test prüft Kennzeichnung und Verschiebung beim Darüberfahren
 
 ## 4. Weiterrücken sichtbar
 

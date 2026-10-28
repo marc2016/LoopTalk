@@ -80,7 +80,11 @@ gereicht:
 
 Die Leiste enthält den Satz „<Moderator> protokolliert beim nächsten Termin. Die
 neue Moderation wird gezogen.“ bzw. „Keine Themen auf dem Board.“ Hover oder Fokus
-auf „Termin beenden“ zeigt dieselbe Vorschau schon vor dem Klick als Andeutung.
+auf „Termin beenden“ zeigt dieselbe Vorschau schon vor dem Klick als Andeutung,
+animiert: Karten rutschen per CSS-Übergang ein Stück nach rechts, archivierte
+blenden halb aus, die Etiketten sitzen am Kartenrand (keine Höhenänderung) und
+gleiten ein, die Pfeile zwischen den Spalten stupsen. Alles nur mit
+`motion-safe`; bei reduzierter Bewegung bleibt die Vorschau statisch.
 
 - Alternative: Vorschau innerhalb des modalen Dialogs als Miniatur. Verworfen: Die
   Miniatur wäre schwer lesbar, und das echte Board ist die bessere Vorschau.

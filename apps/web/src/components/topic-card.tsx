@@ -46,17 +46,24 @@ export function TopicCard({
       data-card-id={card.id}
       data-preview={preview ?? undefined}
       className={cn(
-        "relative w-full rounded-lg border bg-card p-3 text-left shadow-xs transition-[box-shadow,opacity,border-color] duration-200",
+        "relative w-full rounded-lg border bg-card p-3 text-left shadow-xs",
+        "transition-[box-shadow,opacity,border-color,translate] duration-300 ease-out",
         "hover:shadow-md focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none",
         last && "border-l-3 border-l-last-round-accent",
-        preview === "archive" && "border-dashed opacity-55 shadow-none",
+        // Vorschau: Karten deuten das Weiterrücken an, archivierte blenden halb aus.
+        preview === "advance" && "motion-safe:translate-x-1.5",
+        preview === "archive" && "border-dashed opacity-55 shadow-none motion-safe:translate-x-2.5",
       )}
     >
       {preview && (
         <span
+          // Als Etikett am Rand, damit die Karte nicht höher wird und nichts springt.
           className={cn(
-            "mb-2 inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-xs font-medium",
-            preview === "archive" ? "bg-last-round text-last-round-foreground" : "bg-running text-primary",
+            "absolute -top-2.5 right-3 inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-xs font-medium shadow-xs",
+            "motion-safe:animate-in motion-safe:fade-in-0 motion-safe:slide-in-from-left-2 motion-safe:duration-300",
+            preview === "archive"
+              ? "border-last-round-accent/40 bg-last-round text-last-round-foreground"
+              : "border-primary/20 bg-running text-primary",
           )}
         >
           {preview === "archive" ? (
