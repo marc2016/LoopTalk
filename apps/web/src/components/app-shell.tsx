@@ -1,8 +1,7 @@
 import { LogOutIcon, RefreshCwIcon } from "lucide-react";
 import { Link, Outlet } from "react-router";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { PersonAvatar } from "@/components/person";
 import { Button } from "@/components/ui/button";
-import { initials } from "@/lib/format";
 import { useMe } from "@/lib/queries";
 
 export function AppShell() {
@@ -21,9 +20,7 @@ export function AppShell() {
           <div className="ml-auto flex items-center gap-3">
             {me.data && (
               <span className="flex items-center gap-2 text-sm text-muted-foreground">
-                <Avatar size="sm">
-                  <AvatarFallback>{initials(me.data.name)}</AvatarFallback>
-                </Avatar>
+                <PersonAvatar name={me.data.name} userId={me.data.id} />
                 {me.data.name}
               </span>
             )}

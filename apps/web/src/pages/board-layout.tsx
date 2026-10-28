@@ -57,7 +57,7 @@ export function BoardLayout() {
     <div className="grid gap-5">
       <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
         <div className="flex items-center gap-1">
-          <h1 className="text-2xl font-semibold">{board.data.name}</h1>
+          <h1 className="text-2xl font-semibold tracking-tight">{board.data.name}</h1>
           <RenameBoardDialog slug={slug} name={board.data.name} />
         </div>
         <Button variant="outline" size="sm" onClick={() => void copyLink()}>
@@ -89,7 +89,8 @@ export function BoardLayout() {
         ))}
       </nav>
 
-      <Outlet context={{ slug, board: board.data } satisfies BoardContext} />
+      {/* Pro Board neu einhängen, damit Zustand (z. B. Terminnummer fürs Weiterrücken) nicht zwischen Boards wandert */}
+      <Outlet key={slug} context={{ slug, board: board.data } satisfies BoardContext} />
     </div>
   );
 }

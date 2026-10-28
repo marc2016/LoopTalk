@@ -49,7 +49,8 @@ createRoot(document.getElementById("root")!).render(
     <QueryClientProvider client={queryClient}>
       <TooltipProvider delayDuration={200}>
         <RouterProvider router={router} />
-        <Toaster position="bottom-right" richColors />
+        {/* Oben, damit Hinweise die Bestätigungsleiste am unteren Rand nicht verdecken */}
+        <Toaster position="top-right" offset={72} richColors />
       </TooltipProvider>
     </QueryClientProvider>
   </StrictMode>,

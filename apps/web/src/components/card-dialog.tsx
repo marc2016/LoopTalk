@@ -7,6 +7,7 @@ import type { z } from "zod";
 import { CardHistory } from "@/components/card-history";
 import { FieldError } from "@/components/field-error";
 import { PeoplePicker } from "@/components/people-picker";
+import { PersonBadge } from "@/components/person";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -18,14 +19,14 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
-import { columnTitles, formatDateTime } from "@/lib/format";
+import { formatDateTime } from "@/lib/format";
+import { columnTitle } from "@/lib/lifecycle";
 import { useBoardActions } from "@/lib/queries";
 
 type FormInput = z.input<typeof createCardSchema>;
@@ -80,7 +81,7 @@ export function CardDialog({
             <DialogTitle>{card ? "Thema bearbeiten" : "Neues Thema"}</DialogTitle>
             <DialogDescription>
               {card
-                ? `${columnTitles[card.column]} · angelegt von ${card.createdBy.name} am ${formatDateTime(card.createdAt)}`
+                ? `${columnTitle(card.column)} · angelegt von ${card.createdBy.name} am ${formatDateTime(card.createdAt)}`
                 : "Neue Themen landen in der Spalte „Neu“."}
             </DialogDescription>
           </DialogHeader>
@@ -105,8 +106,7 @@ export function CardDialog({
               <h3 className="text-sm font-medium">Namen</h3>
               <div className="flex flex-wrap items-center gap-2">
                 {card.people.map((person) => (
-                  <Badge key={person.id} variant="secondary" className="gap-1 pr-1">
-                    {person.name}
+                  <PersonBadge key={person.id} name={person.name} userId={person.userId} className="gap-1 pr-1">
                     <button
                       type="button"
                       className="rounded-sm p-0.5 hover:bg-foreground/10"
@@ -115,7 +115,7 @@ export function CardDialog({
                     >
                       <XIcon className="size-3" aria-hidden />
                     </button>
-                  </Badge>
+                  </PersonBadge>
                 ))}
                 <PeoplePicker
                   participants={board.participants}

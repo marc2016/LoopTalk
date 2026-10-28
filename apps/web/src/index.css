@@ -13,6 +13,10 @@
     --color-warning: var(--warning);
     --color-warning-foreground: var(--warning-foreground);
     --color-column: var(--column);
+    --color-last-round: var(--last-round);
+    --color-last-round-foreground: var(--last-round-foreground);
+    --color-last-round-accent: var(--last-round-accent);
+    --color-running: var(--running);
     --color-input: var(--input);
     --color-border: var(--border);
     --color-destructive: var(--destructive);
@@ -62,6 +66,26 @@
     --input: oklch(0.89 0.006 255);
     --ring: oklch(0.62 0.14 258);
     --column: oklch(0.965 0.008 255);
+
+    /* Letzte Runde: warmer, gedeckter Ton. Kontrast Schrift/Fläche 6,96:1,
+       gedämpfte Schrift auf Fläche 5,88:1 (WCAG AA). */
+    --last-round: oklch(0.965 0.03 75);
+    --last-round-foreground: oklch(0.45 0.11 55);
+    --last-round-accent: oklch(0.72 0.13 65);
+
+    /* Laufender Termin: leichte Akzentfläche. Primärfarbe darauf 5,63:1. */
+    --running: oklch(0.97 0.015 258);
+
+    /* Personenfarben: Fläche und Schrift je Person, Farbton aus der Benutzer-ID.
+       Kontrast Schrift/Fläche zwischen 6,62:1 und 7,57:1 (WCAG AA). */
+    --person-0-bg: oklch(0.92 0.05 25);   --person-0-fg: oklch(0.4 0.11 25);
+    --person-1-bg: oklch(0.92 0.05 60);   --person-1-fg: oklch(0.4 0.11 60);
+    --person-2-bg: oklch(0.92 0.05 95);   --person-2-fg: oklch(0.4 0.11 95);
+    --person-3-bg: oklch(0.92 0.05 145);  --person-3-fg: oklch(0.4 0.11 145);
+    --person-4-bg: oklch(0.92 0.05 185);  --person-4-fg: oklch(0.4 0.11 185);
+    --person-5-bg: oklch(0.92 0.05 230);  --person-5-fg: oklch(0.4 0.11 230);
+    --person-6-bg: oklch(0.92 0.05 275);  --person-6-fg: oklch(0.4 0.11 275);
+    --person-7-bg: oklch(0.92 0.05 330);  --person-7-fg: oklch(0.4 0.11 330);
     --radius: 0.625rem;
 }
 

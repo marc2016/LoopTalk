@@ -1,6 +1,7 @@
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { columnTitles, formatDateTime } from "@/lib/format";
+import { formatDateTime } from "@/lib/format";
+import { columnTitle } from "@/lib/lifecycle";
 import { useHistory } from "@/lib/queries";
 import { useBoardContext } from "./board-layout";
 
@@ -39,7 +40,7 @@ export function HistoryPage() {
                   <ul className="grid gap-1.5">
                     {m.cards.map((c) => (
                       <li key={c.cardId} className="flex flex-wrap items-center gap-2">
-                        <Badge variant="outline">{columnTitles[c.column]}</Badge>
+                        <Badge variant="outline">{columnTitle(c.column)}</Badge>
                         <span>{c.title}</span>
                         {c.people.length > 0 && (
                           <span className="text-muted-foreground">({c.people.join(", ")})</span>

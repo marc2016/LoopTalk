@@ -1,7 +1,7 @@
 import type { UserRef } from "@looptalk/shared";
-import { Avatar, AvatarFallback, AvatarGroup } from "@/components/ui/avatar";
+import { PersonAvatar } from "@/components/person";
+import { AvatarGroup } from "@/components/ui/avatar";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { initials } from "@/lib/format";
 
 /** Wer das Board gerade geöffnet hat. */
 export function PresenceBar({ users, connected }: { users: UserRef[]; connected: boolean }) {
@@ -18,9 +18,13 @@ export function PresenceBar({ users, connected }: { users: UserRef[]; connected:
         {users.map((user) => (
           <Tooltip key={user.id}>
             <TooltipTrigger asChild>
-              <Avatar size="sm" className="ring-2 ring-card" data-testid="presence-user" aria-label={user.name}>
-                <AvatarFallback className="bg-secondary text-secondary-foreground">{initials(user.name)}</AvatarFallback>
-              </Avatar>
+              <PersonAvatar
+                name={user.name}
+                userId={user.id}
+                className="ring-2 ring-card"
+                data-testid="presence-user"
+                aria-label={user.name}
+              />
             </TooltipTrigger>
             <TooltipContent>{user.name}</TooltipContent>
           </Tooltip>

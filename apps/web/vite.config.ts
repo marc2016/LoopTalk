@@ -12,6 +12,8 @@ export default defineConfig({
   },
   server: {
     port: 5173,
+    // Im Docker-Container erreichen Dateiänderungen vom Host Vite nicht zuverlässig als Events.
+    watch: process.env.VITE_POLLING ? { usePolling: true, interval: 300 } : undefined,
     proxy: {
       "/api": { target: backend },
       "/auth": { target: backend },
