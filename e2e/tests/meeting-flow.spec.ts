@@ -1,53 +1,5 @@
-import { type Browser, expect, type Page, test } from "@playwright/test";
-
-/** Laufende Web-Animationen auf Karten (Weiterrücken). */
-const cardAnimations = (page: Page) =>
-  page.evaluate(
-    () =>
-      document
-        .getAnimations()
-        .filter((a) => (a.effect as KeyframeEffect | null)?.target instanceof HTMLElement)
-        .filter((a) => ((a.effect as KeyframeEffect).target as HTMLElement).dataset.cardId !== undefined).length,
-  );
-
-async function createBoard(page: Page, name: string): Promise<string> {
-  await page.getByRole("button", { name: "Board erstellen" }).click();
-  await page.getByLabel("Name").fill(name);
-  await page.getByRole("button", { name: "Erstellen" }).click();
-  await expect(page.getByRole("heading", { name })).toBeVisible();
-  return new URL(page.url()).pathname;
-}
-
-async function addCard(page: Page, title: string) {
-  await page.getByRole("button", { name: "Thema" }).click();
-  await page.getByLabel("Titel").fill(title);
-  await page.getByRole("button", { name: "Anlegen" }).click();
-  await expect(page.getByTestId("column-1").getByText(title)).toBeVisible();
-}
-
-async function startAndEnd(page: Page) {
-  await page.getByRole("button", { name: "Termin starten" }).click();
-  await page.getByRole("button", { name: "Termin beenden" }).click();
-  await page.getByRole("alertdialog").getByRole("button", { name: "Termin beenden" }).click();
-  await expect(page.getByRole("button", { name: "Termin starten" })).toBeVisible();
-}
-
-/** Login über die echte Dex-Anmeldeseite (Testnutzer aus docker/dex.*.yaml). */
-async function login(
-  browser: Browser,
-  email: string,
-  path = "/",
-  options: { reducedMotion?: "reduce" | "no-preference" } = {},
-): Promise<Page> {
-  const context = await browser.newContext(options);
-  const page = await context.newPage();
-  await page.goto(path);
-  await page.locator('input[name="login"]').fill(email);
-  await page.locator('input[name="password"]').fill("password");
-  await page.locator('button[type="submit"]').click();
-  await page.waitForURL((url) => !url.pathname.startsWith("/dex"));
-  return page;
-}
+import { expect, test } from "@playwright/test";
+import { addCard, cardAnimations, closeSheet, createBoard, login, startAndEnd } from "./helpers";
 
 test("zwei Personen arbeiten live auf einem Board und schließen einen Termin ab", async ({ browser }) => {
   const boardName = `E2E-Board ${Date.now()}`;
@@ -74,23 +26,25 @@ test("zwei Personen arbeiten live auf einem Board und schließen einen Termin ab
   await expect(benColumn1.getByTestId("card-life")).toHaveText("noch 3 Termine");
   await expect(ben.getByTestId("column-until")).toHaveText(["bis Termin 3", "bis Termin 2", "nur noch Termin 1"]);
 
-  // Ben bearbeitet das fremde Thema und hängt einen Namen an
+  // Ben öffnet das fremde Thema, hängt in der Detailansicht einen Namen an und bearbeitet es
   await benColumn1.getByText("Release-Planung").click();
-  await ben.getByLabel("Beschreibung (optional)").fill("Was steht für Q1 an?");
   await ben.getByRole("button", { name: "Name hinzufügen" }).click();
   await ben.getByPlaceholder("Name eingeben …").fill("Carla");
   await ben.getByRole("option", { name: "„Carla“ hinzufügen" }).click();
   await expect(ben.getByRole("region", { name: "Namen" }).getByText("Carla")).toBeVisible();
+  await ben.getByRole("button", { name: "Bearbeiten" }).click();
+  await ben.getByLabel("Beschreibung (optional)").fill("Was steht für Q1 an?");
   await ben.getByRole("button", { name: "Speichern" }).click();
+  await expect(ben.getByTestId("card-description")).toHaveText("Was steht für Q1 an?");
+  await closeSheet(ben);
   const annaCard = anna.getByTestId("column-1").getByTestId("topic-card").filter({ hasText: "Release-Planung" });
   await expect(annaCard.getByText("Was steht für Q1 an?")).toBeVisible();
   await expect(annaCard.getByText("Carla")).toBeVisible();
 
-  // Anna legt ein zweites Thema an und löscht es wieder
-  await anna.getByRole("button", { name: "Thema" }).click();
-  await anna.getByLabel("Titel").fill("Weg damit");
-  await anna.getByRole("button", { name: "Anlegen" }).click();
+  // Anna legt ein zweites Thema an und löscht es wieder (Löschen gibt es nur beim Bearbeiten)
+  await addCard(anna, "Weg damit");
   await anna.getByTestId("column-1").getByText("Weg damit").click();
+  await anna.getByRole("button", { name: "Bearbeiten" }).click();
   await anna.getByRole("dialog").getByRole("button", { name: "Löschen" }).click();
   await anna.getByRole("alertdialog").getByRole("button", { name: "Löschen" }).click();
   await expect(ben.getByText("Weg damit")).toBeHidden();

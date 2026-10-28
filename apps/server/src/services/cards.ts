@@ -2,7 +2,7 @@ import type { AddPersonInput, CreateCardInput, UpdateCardInput } from "@looptalk
 import { and, asc, eq, isNull } from "drizzle-orm";
 import { recordAudit } from "../audit/record";
 import type { Tx } from "../db/client";
-import { boardMembers, cardPeople, cards } from "../db/schema";
+import { boardMembers, cardPeople, cards, meetings } from "../db/schema";
 import { AppError, notFound } from "../errors";
 import type { BoardRow, ServiceDeps } from "./common";
 
@@ -79,6 +79,11 @@ export function cardService({ db, notifier, now }: ServiceDeps) {
           .where(eq(cardPeople.cardId, card.id))
           .orderBy(asc(cardPeople.id));
         await tx.update(cards).set({ deletedAt: now() }).where(eq(cards.id, card.id));
+        // Eine gelöschte Karte kann nicht im Fokus bleiben.
+        await tx
+          .update(meetings)
+          .set({ focusCardId: null, focusBy: null, focusSince: null })
+          .where(and(eq(meetings.boardId, board.id), eq(meetings.focusCardId, card.id)));
         await recordAudit(tx, {
           boardId: board.id,
           actorId: userId,

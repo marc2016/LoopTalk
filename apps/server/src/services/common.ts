@@ -1,4 +1,4 @@
-import type { AuditAction, UserRef } from "@looptalk/shared";
+import type { BoardChangeReason, UserRef } from "@looptalk/shared";
 import { and, eq, inArray, ne } from "drizzle-orm";
 import type { Db, Executor, Tx } from "../db/client";
 import { boardMembers, boards, meetings, rotationPool, users } from "../db/schema";
@@ -7,7 +7,7 @@ import { notFound } from "../errors";
 
 /** Wird nach jedem Commit aufgerufen, damit Live-Clients neu laden. */
 export interface BoardNotifier {
-  boardChanged(boardId: number, reason: AuditAction): void;
+  boardChanged(boardId: number, reason: BoardChangeReason): void;
 }
 
 export interface ServiceDeps {

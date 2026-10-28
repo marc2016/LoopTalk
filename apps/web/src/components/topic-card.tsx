@@ -1,5 +1,5 @@
 import type { CardView, Column } from "@looptalk/shared";
-import { ArchiveIcon, ArrowRightIcon } from "lucide-react";
+import { ArchiveIcon, ArrowRightIcon, CheckCircle2Icon } from "lucide-react";
 import { PersonBadge } from "@/components/person";
 import { columnTitle, lifecycle } from "@/lib/lifecycle";
 import { cn } from "@/lib/utils";
@@ -95,7 +95,15 @@ export function TopicCard({
       )}
 
       <div className="mt-2.5 flex items-center justify-between gap-2 text-xs text-muted-foreground">
-        <span className="truncate">von {card.createdBy.name}</span>
+        <span className="flex min-w-0 items-center gap-2">
+          <span className="truncate">von {card.createdBy.name}</span>
+          {card.discussed && (
+            <span className="flex shrink-0 items-center gap-1 font-medium text-emerald-700" data-testid="card-discussed">
+              <CheckCircle2Icon className="size-3.5" aria-hidden />
+              heute besprochen
+            </span>
+          )}
+        </span>
         <span
           className={cn("flex shrink-0 items-center gap-1.5", last && "font-medium text-last-round-foreground")}
           data-testid="card-life"

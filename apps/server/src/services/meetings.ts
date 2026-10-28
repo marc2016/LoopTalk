@@ -1,13 +1,15 @@
 import type { MeetingHistoryEntry, SetRolesInput, UserRef } from "@looptalk/shared";
 import { and, asc, desc, eq, inArray, isNull } from "drizzle-orm";
+import type { Tx } from "../db/client";
 import { recordAudit } from "../audit/record";
-import { cardPeople, cards, meetingCards, meetings } from "../db/schema";
+import { cardPeople, cards, meetingCards, meetingDiscussed, meetings } from "../db/schema";
 import { DomainError, endMeeting, setRoles, startMeeting } from "../domain/meeting";
-import { AppError } from "../errors";
+import { AppError, notFound } from "../errors";
 import {
   activeMemberIds,
   type BoardRow,
   loadPool,
+  type MeetingRow,
   lockCurrentMeeting,
   ref,
   refOrNull,
@@ -26,6 +28,44 @@ function mapDomainError<T>(fn: () => T): T {
     }
     throw err;
   }
+}
+
+/** Laufender Termin, für Fokus und „besprochen“; sonst Konflikt. */
+async function lockRunningMeeting(tx: Tx, boardId: number): Promise<MeetingRow> {
+  const row = await lockCurrentMeeting(tx, boardId);
+  if (row.status !== "running") throw new AppError("conflict", "Der Termin läuft nicht.");
+  return row;
+}
+
+async function openCardOfBoard(tx: Tx, boardId: number, cardId: number) {
+  const [card] = await tx
+    .select({ id: cards.id, title: cards.title })
+    .from(cards)
+    .where(and(eq(cards.id, cardId), eq(cards.boardId, boardId), isNull(cards.deletedAt), isNull(cards.archivedAt)));
+  if (!card) throw notFound("Thema nicht gefunden.");
+  return card;
+}
+
+/** Markiert eine Karte für den Termin als besprochen; Audit nur bei neuer Markierung. */
+async function markDiscussed(
+  tx: Tx,
+  args: { boardId: number; meeting: MeetingRow; card: { id: number; title: string }; userId: number; via: "focus" | "manual" },
+): Promise<boolean> {
+  const inserted = await tx
+    .insert(meetingDiscussed)
+    .values({ meetingId: args.meeting.id, cardId: args.card.id, markedBy: args.userId })
+    .onConflictDoNothing()
+    .returning();
+  if (inserted.length === 0) return false;
+  await recordAudit(tx, {
+    boardId: args.boardId,
+    actorId: args.userId,
+    action: "card.discussed",
+    targetType: "card",
+    targetId: args.card.id,
+    data: { title: args.card.title, number: args.meeting.number, via: args.via },
+  });
+  return true;
 }
 
 export function meetingService({ db, notifier, rng, now }: ServiceDeps) {
@@ -130,6 +170,11 @@ export function meetingService({ db, notifier, rng, now }: ServiceDeps) {
               ),
             )
             .orderBy(asc(cardPeople.id));
+          const discussed = await tx
+            .select({ cardId: meetingDiscussed.cardId })
+            .from(meetingDiscussed)
+            .where(eq(meetingDiscussed.meetingId, row.id));
+          const discussedIds = new Set(discussed.map((d) => d.cardId));
           await tx.insert(meetingCards).values(
             openCards.map((c) => ({
               meetingId: row.id,
@@ -138,6 +183,7 @@ export function meetingService({ db, notifier, rng, now }: ServiceDeps) {
               description: c.description,
               columnAtMeeting: c.column,
               people: people.filter((p) => p.cardId === c.id).map((p) => p.name),
+              discussed: discussedIds.has(c.id),
             })),
           );
         }
@@ -145,7 +191,16 @@ export function meetingService({ db, notifier, rng, now }: ServiceDeps) {
         // 2. Termin beenden
         await tx
           .update(meetings)
-          .set({ status: "ended", endedAt: result.ended.endedAt, endedBy: userId, version: result.ended.version })
+          .set({
+            status: "ended",
+            endedAt: result.ended.endedAt,
+            endedBy: userId,
+            version: result.ended.version,
+            // Der Fokus endet mit dem Termin.
+            focusCardId: null,
+            focusBy: null,
+            focusSince: null,
+          })
           .where(eq(meetings.id, row.id));
 
         // 3. Karten weiterschieben und archivieren
@@ -190,6 +245,54 @@ export function meetingService({ db, notifier, rng, now }: ServiceDeps) {
       return next;
     },
 
+    /** Karte allen zeigen. Ändert die Terminversion nicht; markiert als besprochen. */
+    async focus(board: BoardRow, userId: number, cardId: number): Promise<void> {
+      await db.transaction(async (tx) => {
+        const row = await lockRunningMeeting(tx, board.id);
+        const card = await openCardOfBoard(tx, board.id, cardId);
+        await tx
+          .update(meetings)
+          .set({ focusCardId: card.id, focusBy: userId, focusSince: now() })
+          .where(eq(meetings.id, row.id));
+        await markDiscussed(tx, { boardId: board.id, meeting: row, card, userId, via: "focus" });
+      });
+      notifier.boardChanged(board.id, "meeting.focus_changed");
+    },
+
+    async unfocus(board: BoardRow): Promise<void> {
+      await db.transaction(async (tx) => {
+        const row = await lockRunningMeeting(tx, board.id);
+        await tx
+          .update(meetings)
+          .set({ focusCardId: null, focusBy: null, focusSince: null })
+          .where(eq(meetings.id, row.id));
+      });
+      notifier.boardChanged(board.id, "meeting.focus_changed");
+    },
+
+    async setDiscussed(board: BoardRow, userId: number, cardId: number, discussed: boolean): Promise<void> {
+      const changed = await db.transaction(async (tx) => {
+        const row = await lockRunningMeeting(tx, board.id);
+        const card = await openCardOfBoard(tx, board.id, cardId);
+        if (discussed) return markDiscussed(tx, { boardId: board.id, meeting: row, card, userId, via: "manual" });
+        const removed = await tx
+          .delete(meetingDiscussed)
+          .where(and(eq(meetingDiscussed.meetingId, row.id), eq(meetingDiscussed.cardId, card.id)))
+          .returning();
+        if (removed.length === 0) return false;
+        await recordAudit(tx, {
+          boardId: board.id,
+          actorId: userId,
+          action: "card.undiscussed",
+          targetType: "card",
+          targetId: card.id,
+          data: { title: card.title, number: row.number },
+        });
+        return true;
+      });
+      if (changed) notifier.boardChanged(board.id, discussed ? "card.discussed" : "card.undiscussed");
+    },
+
     async history(board: BoardRow): Promise<MeetingHistoryEntry[]> {
       const rows = await db
         .select()
@@ -228,6 +331,7 @@ export function meetingService({ db, notifier, rng, now }: ServiceDeps) {
             description: s.description,
             column: s.columnAtMeeting as 1 | 2 | 3,
             people: s.people,
+            discussed: s.discussed,
           })),
       }));
     },

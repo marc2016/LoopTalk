@@ -204,6 +204,7 @@ function EndConfirmBar({
   const { meeting, cards } = board;
   const advancing = cards.filter((c) => c.column < 3).length;
   const archived = cards.length - advancing;
+  const notDiscussed = cards.filter((c) => c.column === 3 && !c.discussed).map((c) => c.title);
 
   return (
     <div
@@ -227,6 +228,12 @@ function EndConfirmBar({
               : `${advancing === 1 ? "1 Thema rückt" : `${advancing} Themen rücken`} weiter, ${archived} ${archived === 1 ? "wird" : "werden"} archiviert.`}{" "}
             {meeting.moderator.name} protokolliert beim nächsten Termin. Die neue Moderation wird gezogen.
           </p>
+          {notDiscussed.length > 0 && (
+            <p className="mt-1.5 flex items-start gap-1.5 text-sm font-medium text-last-round-foreground" data-testid="end-not-discussed">
+              <TriangleAlertIcon className="mt-0.5 size-4 shrink-0" aria-hidden />
+              Nicht besprochen und wird archiviert: {notDiscussed.join(", ")}
+            </p>
+          )}
         </div>
         <div className="flex gap-2">
           {/* Fokus auf „Abbrechen“, wie bei Bestätigungsdialogen üblich */}

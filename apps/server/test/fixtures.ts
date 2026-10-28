@@ -1,12 +1,12 @@
-import type { AuditAction } from "@looptalk/shared";
+import type { AuditAction, BoardChangeReason } from "@looptalk/shared";
 import { asc, eq } from "drizzle-orm";
 import type { Db } from "../src/db/client";
 import { auditEvents, users } from "../src/db/schema";
 import { createServices, type BoardNotifier } from "../src/services";
 
 export class RecordingNotifier implements BoardNotifier {
-  events: { boardId: number; reason: AuditAction }[] = [];
-  boardChanged(boardId: number, reason: AuditAction) {
+  events: { boardId: number; reason: BoardChangeReason }[] = [];
+  boardChanged(boardId: number, reason: BoardChangeReason) {
     this.events.push({ boardId, reason });
   }
 }

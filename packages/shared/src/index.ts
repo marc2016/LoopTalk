@@ -64,6 +64,8 @@ export const setRolesSchema = z.strictObject({
 
 export const setParticipantSchema = z.strictObject({ active: z.boolean() });
 
+export const focusSchema = z.strictObject({ cardId: id });
+
 export const auditActions = [
   "board.created",
   "board.renamed",
@@ -75,6 +77,8 @@ export const auditActions = [
   "card.deleted",
   "card.person_added",
   "card.person_removed",
+  "card.discussed",
+  "card.undiscussed",
   "meeting.started",
   "meeting.roles_changed",
   "meeting.ended",
@@ -131,6 +135,8 @@ export interface CardView {
   createdBy: UserRef;
   createdAt: string;
   people: CardPerson[];
+  /** Im laufenden Termin besprochen (durch Zeigen oder manuell). */
+  discussed: boolean;
 }
 
 export interface CurrentMeeting {
@@ -140,6 +146,14 @@ export interface CurrentMeeting {
   moderator: UserRef;
   protocol: UserRef | null;
   version: number;
+  /** Gemeinsamer Fokus: die Karte, die gerade allen gezeigt wird. */
+  focus: MeetingFocus | null;
+}
+
+export interface MeetingFocus {
+  cardId: number;
+  by: UserRef;
+  since: string;
 }
 
 export interface Participant extends UserRef {
@@ -162,6 +176,7 @@ export interface MeetingCardSnapshot {
   description: string;
   column: Column;
   people: string[];
+  discussed: boolean;
 }
 
 export interface MeetingHistoryEntry {
@@ -199,8 +214,11 @@ export interface ApiErrorBody {
 
 /** `board`: Board, Rollen oder Teilnehmer haben sich geändert, Client lädt neu. */
 export interface BoardChangedEvent {
-  reason: AuditAction;
+  /** Audit-Aktion oder `meeting.focus_changed` (Zeigen ist keine Audit-Aktion). */
+  reason: BoardChangeReason;
 }
+
+export type BoardChangeReason = AuditAction | "meeting.focus_changed";
 
 /** `presence`: wer das Board gerade geöffnet hat. */
 export interface PresenceEvent {

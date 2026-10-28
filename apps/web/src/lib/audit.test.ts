@@ -40,6 +40,18 @@ describe("describeAudit", () => {
     expect(result.details).toEqual(["Moderation: Anna → Ben"]);
   });
 
+  it("unterscheidet besprochen durch Zeigen und manuell", () => {
+    expect(describeAudit(entry("card.discussed", { title: "Budget", number: 4, via: "focus" })).text).toBe(
+      "hat das Thema „Budget“ allen gezeigt, damit gilt es in Termin 4 als besprochen",
+    );
+    expect(describeAudit(entry("card.discussed", { title: "Budget", number: 4, via: "manual" })).text).toBe(
+      "hat das Thema „Budget“ in Termin 4 als besprochen markiert",
+    );
+    expect(describeAudit(entry("card.undiscussed", { title: "Budget", number: 4 })).text).toBe(
+      "hat beim Thema „Budget“ die Markierung „besprochen“ entfernt",
+    );
+  });
+
   it("fasst das Beenden eines Termins zusammen", () => {
     const result = describeAudit(
       entry("meeting.ended", {

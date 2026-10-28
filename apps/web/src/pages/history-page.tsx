@@ -1,8 +1,10 @@
+import { CheckCircle2Icon } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { formatDateTime } from "@/lib/format";
 import { columnTitle } from "@/lib/lifecycle";
 import { useHistory } from "@/lib/queries";
+import { cn } from "@/lib/utils";
 import { useBoardContext } from "./board-layout";
 
 export function HistoryPage() {
@@ -39,9 +41,21 @@ export function HistoryPage() {
                 ) : (
                   <ul className="grid gap-1.5">
                     {m.cards.map((c) => (
-                      <li key={c.cardId} className="flex flex-wrap items-center gap-2">
+                      <li
+                        key={c.cardId}
+                        className={cn("flex flex-wrap items-center gap-2", !c.discussed && "text-muted-foreground")}
+                        data-discussed={c.discussed}
+                      >
                         <Badge variant="outline">{columnTitle(c.column)}</Badge>
                         <span>{c.title}</span>
+                        {c.discussed ? (
+                          <span className="flex items-center gap-1 text-xs font-medium text-emerald-700">
+                            <CheckCircle2Icon className="size-3.5" aria-hidden />
+                            besprochen
+                          </span>
+                        ) : (
+                          <span className="text-xs">nicht besprochen</span>
+                        )}
                         {c.people.length > 0 && (
                           <span className="text-muted-foreground">({c.people.join(", ")})</span>
                         )}

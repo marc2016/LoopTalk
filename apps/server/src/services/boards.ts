@@ -8,7 +8,7 @@ import {
 import { and, asc, eq, inArray, isNull } from "drizzle-orm";
 import { recordAudit } from "../audit/record";
 import type { Executor } from "../db/client";
-import { boardMembers, boards, cardPeople, cards, meetings, rotationPool, users } from "../db/schema";
+import { boardMembers, boards, cardPeople, cards, meetingDiscussed, meetings, rotationPool, users } from "../db/schema";
 import { createBoardSlug } from "../db/slug";
 import { addToPool, firstMeeting } from "../domain/meeting";
 import {
@@ -140,6 +140,18 @@ export async function loadBoardView(exec: Executor, board: BoardRow): Promise<Bo
           .where(inArray(cardPeople.cardId, cardIds))
           .orderBy(asc(cardPeople.addedAt), asc(cardPeople.id));
 
+  // „Besprochen“ gilt nur im laufenden Termin.
+  const discussedIds = new Set(
+    meeting.status === "running"
+      ? (
+          await exec
+            .select({ cardId: meetingDiscussed.cardId })
+            .from(meetingDiscussed)
+            .where(eq(meetingDiscussed.meetingId, meeting.id))
+        ).map((d) => d.cardId)
+      : [],
+  );
+
   const views: CardView[] = cardRows.map(({ card, creator }) => ({
     id: card.id,
     title: card.title,
@@ -150,10 +162,11 @@ export async function loadBoardView(exec: Executor, board: BoardRow): Promise<Bo
     people: peopleRows
       .filter((p) => p.cardId === card.id)
       .map((p) => ({ id: p.id, name: p.name, userId: p.userId })),
+    discussed: discussedIds.has(card.id),
   }));
 
   const participants = await loadParticipants(exec, board.id);
-  const refs = await userRefs(exec, [meeting.moderatorId, meeting.protocolId]);
+  const refs = await userRefs(exec, [meeting.moderatorId, meeting.protocolId, meeting.focusBy]);
 
   return {
     slug: board.slug,
@@ -165,6 +178,10 @@ export async function loadBoardView(exec: Executor, board: BoardRow): Promise<Bo
       moderator: ref(refs, meeting.moderatorId),
       protocol: refOrNull(refs, meeting.protocolId),
       version: meeting.version,
+      focus:
+        meeting.focusCardId !== null && meeting.focusBy !== null && meeting.focusSince !== null
+          ? { cardId: meeting.focusCardId, by: ref(refs, meeting.focusBy), since: meeting.focusSince.toISOString() }
+          : null,
     },
     cards: views,
     participants,

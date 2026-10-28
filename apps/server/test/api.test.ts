@@ -73,6 +73,7 @@ const as = (cookie: string) => ({
   get: (url: string) => request(app).get(url).set("Cookie", cookie),
   post: (url: string, body?: object) => request(app).post(url).set("Cookie", cookie).send(body),
   patch: (url: string, body?: object) => request(app).patch(url).set("Cookie", cookie).send(body),
+  put: (url: string, body?: object) => request(app).put(url).set("Cookie", cookie).send(body),
   delete: (url: string) => request(app).delete(url).set("Cookie", cookie),
 });
 
@@ -275,5 +276,39 @@ describe("Boards und Karten", () => {
       server.closeAllConnections();
       server.close();
     }
+  });
+});
+
+describe("Fokus und besprochen", () => {
+  it("Endpunkte: Erfolg, 409 ohne laufenden Termin, 404 für fremde/gelöschte Karte, Version unverändert", async () => {
+    const anna = as((await login("Anna")).cookie);
+    const slug = (await anna.post("/api/boards", { name: "Fokus" }).expect(201)).body.slug;
+    const other = (await anna.post("/api/boards", { name: "Fremd" }).expect(201)).body.slug;
+    const { id } = (await anna.post(`/api/boards/${slug}/cards`, { title: "Release" }).expect(201)).body;
+    const fremd = (await anna.post(`/api/boards/${other}/cards`, { title: "Fremd" }).expect(201)).body.id;
+
+    await anna.put(`/api/boards/${slug}/meetings/current/focus`, { cardId: id }).expect(409);
+    await anna.put(`/api/boards/${slug}/meetings/current/discussed/${id}`).expect(409);
+
+    let view = (await anna.get(`/api/boards/${slug}`)).body as BoardView;
+    await anna.post(`/api/boards/${slug}/meetings/current/start`, { version: view.meeting.version }).expect(204);
+    view = (await anna.get(`/api/boards/${slug}`)).body as BoardView;
+    const version = view.meeting.version;
+
+    await anna.put(`/api/boards/${slug}/meetings/current/focus`, { cardId: fremd }).expect(404);
+    await anna.put(`/api/boards/${slug}/meetings/current/focus`, { cardId: "x" }).expect(400);
+    await anna.put(`/api/boards/${slug}/meetings/current/focus`, { cardId: id }).expect(204);
+    view = (await anna.get(`/api/boards/${slug}`)).body as BoardView;
+    expect(view.meeting).toMatchObject({ version, focus: { cardId: id, by: { name: "Anna" } } });
+    expect(view.cards[0]!.discussed).toBe(true);
+
+    await anna.delete(`/api/boards/${slug}/meetings/current/discussed/${id}`).expect(204);
+    await anna.delete(`/api/boards/${slug}/meetings/current/focus`).expect(204);
+    view = (await anna.get(`/api/boards/${slug}`)).body as BoardView;
+    expect(view.meeting.focus).toBeNull();
+    expect(view.cards[0]!.discussed).toBe(false);
+
+    await anna.delete(`/api/boards/${slug}/cards/${id}`).expect(204);
+    await anna.put(`/api/boards/${slug}/meetings/current/discussed/${id}`).expect(404);
   });
 });

@@ -11,6 +11,8 @@ export const actionLabels: Record<AuditAction, string> = {
   "card.deleted": "Thema gelöscht",
   "card.person_added": "Name hinzugefügt",
   "card.person_removed": "Name entfernt",
+  "card.discussed": "Als besprochen markiert",
+  "card.undiscussed": "Markierung entfernt",
   "meeting.started": "Termin gestartet",
   "meeting.roles_changed": "Rollen geändert",
   "meeting.ended": "Termin beendet",
@@ -63,6 +65,16 @@ export function describeAudit(entry: AuditEntry): { text: string; details: strin
       return { text: `hat ${quote(str(after.name))} zum Thema ${quote(title)} hinzugefügt`, details };
     case "card.person_removed":
       return { text: `hat ${quote(str(before.name))} vom Thema ${quote(title)} entfernt`, details };
+    case "card.discussed":
+      return {
+        text:
+          d.via === "focus"
+            ? `hat das Thema ${quote(title)} allen gezeigt, damit gilt es in Termin ${String(d.number)} als besprochen`
+            : `hat das Thema ${quote(title)} in Termin ${String(d.number)} als besprochen markiert`,
+        details,
+      };
+    case "card.undiscussed":
+      return { text: `hat beim Thema ${quote(title)} die Markierung „besprochen“ entfernt`, details };
     case "meeting.started":
       return { text: `hat Termin ${String(d.number)} gestartet`, details };
     case "meeting.roles_changed":

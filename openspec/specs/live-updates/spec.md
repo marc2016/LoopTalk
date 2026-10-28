@@ -68,3 +68,48 @@ Angezeigt werden nur Betrachter des jeweiligen Boards.
 #### Scenario: Verbindungsabbruch
 - **WHEN** die SSE-Verbindung abbricht
 - **THEN** verbindet sich der Client automatisch neu und lädt den aktuellen Stand
+
+### Requirement: Weiterrücken sichtbar
+Wenn ein Termin beendet wird, SHALL bei allen Teilnehmern, die das Board geöffnet
+haben, sichtbar werden, dass die Karten weitergerückt sind: Karten gleiten ruhig in
+ihre neue Spalte, archivierte Karten blenden aus. Die Bewegung MUST in höchstens
+einer halben Sekunde abgeschlossen sein. Haben Teilnehmer in ihrem System
+reduzierte Bewegung eingestellt, MUST die Bewegung entfallen; stattdessen SHALL ein
+kurzer Hinweis erscheinen, dass die Themen weitergerückt sind. Andere Änderungen
+(Karte anlegen, bearbeiten, löschen) MUST NOT diese Bewegung auslösen.
+
+#### Scenario: Gleiten bei allen
+- **GIVEN** Anna und Ben haben das Board geöffnet, Karte A liegt in Spalte 1
+- **WHEN** Anna den Termin beendet
+- **THEN** gleitet A bei Anna und bei Ben in Spalte 2
+
+#### Scenario: Reduzierte Bewegung
+- **GIVEN** Ben hat reduzierte Bewegung eingestellt
+- **WHEN** ein Termin beendet wird
+- **THEN** erscheint A bei Ben ohne Bewegung in Spalte 2, zusammen mit einem Hinweis,
+  dass die Themen weitergerückt sind
+
+#### Scenario: Keine Bewegung bei anderen Änderungen
+- **WHEN** ein Teilnehmer eine Karte bearbeitet
+- **THEN** gleitet keine Karte
+
+### Requirement: Fokus bei allen
+Zeigen, Wechseln und Beenden des gemeinsamen Fokus sowie Änderungen der Markierung
+„besprochen“ SHALL ohne Neuladen bei allen Teilnehmern erscheinen, die das Board
+geöffnet haben, und nur bei diesen. Nach einem Verbindungsabbruch MUST der aktuelle
+Fokus beim Wiederverbinden angezeigt werden.
+
+#### Scenario: Fokus erscheint bei allen
+- **GIVEN** Anna und Ben haben das Board geöffnet
+- **WHEN** Anna eine Karte allen zeigt
+- **THEN** öffnet sie sich bei Ben innerhalb weniger Sekunden ohne Neuladen
+
+#### Scenario: Anderes Board
+- **GIVEN** Carla hat ein anderes Board geöffnet
+- **WHEN** Anna eine Karte allen zeigt
+- **THEN** ändert sich bei Carla nichts
+
+#### Scenario: Wiederverbinden
+- **GIVEN** Bens Verbindung ist unterbrochen, während Anna eine Karte zeigt
+- **WHEN** Bens Verbindung wiederhergestellt wird
+- **THEN** sieht Ben die Fokuskarte

@@ -3,6 +3,7 @@ import {
   auditQuerySchema,
   createBoardSchema,
   createCardSchema,
+  focusSchema,
   meetingVersionSchema,
   renameBoardSchema,
   setParticipantSchema,
@@ -131,6 +132,27 @@ export function apiRoutes({ db, services, hub }: { db: Db; services: Services; h
   board.patch("/meetings/current/roles", async (req, res) => {
     const input = parseBody(setRolesSchema, req.body);
     await services.meetings.setRoles(currentBoard(res), currentUser(req).id, input);
+    res.status(204).end();
+  });
+
+  board.put("/meetings/current/focus", async (req, res) => {
+    const { cardId } = parseBody(focusSchema, req.body);
+    await services.meetings.focus(currentBoard(res), currentUser(req).id, cardId);
+    res.status(204).end();
+  });
+
+  board.delete("/meetings/current/focus", async (_req, res) => {
+    await services.meetings.unfocus(currentBoard(res));
+    res.status(204).end();
+  });
+
+  board.put("/meetings/current/discussed/:cardId", async (req, res) => {
+    await services.meetings.setDiscussed(currentBoard(res), currentUser(req).id, parseId(req.params.cardId), true);
+    res.status(204).end();
+  });
+
+  board.delete("/meetings/current/discussed/:cardId", async (req, res) => {
+    await services.meetings.setDiscussed(currentBoard(res), currentUser(req).id, parseId(req.params.cardId), false);
     res.status(204).end();
   });
 

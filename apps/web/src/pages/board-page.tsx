@@ -1,23 +1,51 @@
 import type { Column } from "@looptalk/shared";
 import { ArchiveIcon, ChevronRightIcon, PlusIcon } from "lucide-react";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
-import { CardDialog } from "@/components/card-dialog";
+import { CardSheet, type SheetMode } from "@/components/card-sheet";
+import { FocusBar } from "@/components/focus-bar";
 import { type EndControls, MeetingBar } from "@/components/meeting-bar";
 import { type EndPreview, TopicCard } from "@/components/topic-card";
 import { Button } from "@/components/ui/button";
 import { columns, lifecycle } from "@/lib/lifecycle";
+import { useBoardActions } from "@/lib/queries";
 import { useCardShift } from "@/lib/use-card-shift";
+import { useOtherDialogOpen } from "@/lib/use-other-dialog-open";
 import { cn } from "@/lib/utils";
 import { useBoardContext } from "./board-layout";
 
 export function BoardPage() {
   const { slug, board } = useBoardContext();
   const { meeting } = board;
-  const [dialog, setDialog] = useState<{ open: boolean; cardId: number | null }>({ open: false, cardId: null });
-  // Die Karte immer aus dem aktuellen Stand lesen, damit Änderungen anderer sofort sichtbar sind.
-  const openCard = dialog.cardId === null ? null : (board.cards.find((c) => c.id === dialog.cardId) ?? null);
-  const dialogOpen = dialog.open && (dialog.cardId === null || openCard !== null);
+  const actions = useBoardActions(slug);
+
+  // Persönliche Karten-Ansicht. Die Karte immer aus dem aktuellen Stand lesen, damit
+  // Änderungen anderer sofort sichtbar sind.
+  const [sheet, setSheet] = useState<{ mode: SheetMode; cardId: number | null } | null>(null);
+  const sheetCard = sheet?.cardId != null ? (board.cards.find((c) => c.id === sheet.cardId) ?? null) : null;
+  const sheetGone = sheet !== null && sheet.cardId !== null && sheetCard === null;
+  const personalOpen = sheet !== null && !sheetGone;
+
+  // Gemeinsamer Fokus: öffnet sich, solange ich ihn nicht selbst geschlossen habe und nicht beschäftigt bin.
+  const [dismissedFocus, setDismissedFocus] = useState<string | null>(null);
+  const otherDialogOpen = useOtherDialogOpen();
+  const focus = meeting.focus;
+  const focusKey = focus ? `${focus.cardId}:${focus.since}` : null;
+  const focusCard = focus ? (board.cards.find((c) => c.id === focus.cardId) ?? null) : null;
+  const busy = (personalOpen && sheet.mode !== "view") || otherDialogOpen;
+  const focusOpen = focus !== null && focusCard !== null && focusKey !== dismissedFocus && !busy;
+  // Geht die Fokusansicht über einer persönlichen Ansicht im Lese-Modus auf, ersetzt sie diese
+  // endgültig: Nach dem Schließen des Fokus kommt nicht die alte Ansicht wieder hervor.
+  if (focusOpen && sheet?.mode === "view") setSheet(null);
+
+  // Gelöschte oder archivierte Karte: Ansicht schließt sich (abgeleitet), einmal Hinweis zeigen.
+  const notifiedGone = useRef<number | null>(null);
+  useEffect(() => {
+    if (sheetGone && notifiedGone.current !== sheet.cardId) {
+      notifiedGone.current = sheet.cardId;
+      toast.info("Das Thema ist nicht mehr auf dem Board.");
+    }
+  }, [sheetGone, sheet]);
 
   // Bestätigung gilt nur für die Terminversion, bei der sie geöffnet wurde. Ändert jemand
   // anderes den Termin (Rollen, Beenden), schließt sie sich damit von selbst.
@@ -52,6 +80,19 @@ export function BoardPage() {
   return (
     <div className={cn("grid gap-5", confirming && "pb-32")}>
       <MeetingBar slug={slug} board={board} end={end} />
+      {focus && focusCard && !focusOpen && (
+        <FocusBar
+          by={focus.by}
+          title={focusCard.title}
+          busy={busy}
+          onShow={() => {
+            setDismissedFocus(null);
+            if (personalOpen && sheet.mode !== "view") return;
+            setSheet(null);
+          }}
+          onEnd={() => actions.unfocus.mutate(undefined)}
+        />
+      )}
 
       <div ref={boardRef} className="grid gap-4 md:grid-cols-3" data-previewing={previewing || undefined}>
         {columns.map((column) => {
@@ -95,7 +136,7 @@ export function BoardPage() {
                   </div>
                   <div className="ml-auto flex items-center">
                     {column === 1 && (
-                      <Button size="sm" variant="ghost" onClick={() => setDialog({ open: true, cardId: null })}>
+                      <Button size="sm" variant="ghost" onClick={() => setSheet({ mode: "create", cardId: null })}>
                         <PlusIcon aria-hidden />
                         Thema
                       </Button>
@@ -121,7 +162,7 @@ export function BoardPage() {
                     card={card}
                     meetingNumber={meeting.number}
                     preview={previewFor(column)}
-                    onOpen={() => setDialog({ open: true, cardId: card.id })}
+                    onOpen={() => setSheet({ mode: "view", cardId: card.id })}
                   />
                 ))}
                 {cards.length === 0 && (
@@ -154,13 +195,34 @@ export function BoardPage() {
         })}
       </div>
 
-      <CardDialog
-        slug={slug}
-        board={board}
-        card={openCard}
-        open={dialogOpen}
-        onOpenChange={(open) => setDialog((d) => ({ ...d, open }))}
-      />
+      {focusOpen ? (
+        // Fokusansicht ersetzt eine offene Detailansicht; Bearbeiten wechselt in die eigene Ansicht.
+        <CardSheet
+          key={`focus:${focusKey}`}
+          slug={slug}
+          board={board}
+          card={focusCard}
+          mode="view"
+          focusBy={focus.by}
+          onModeChange={(mode) => setSheet({ mode, cardId: focusCard.id })}
+          onCreated={() => undefined}
+          onClose={() => setDismissedFocus(focusKey)}
+        />
+      ) : (
+        personalOpen && (
+          <CardSheet
+            key={`personal:${sheet.cardId ?? "new"}`}
+            slug={slug}
+            board={board}
+            card={sheetCard}
+            mode={sheet.mode}
+            onModeChange={(mode) => setSheet({ mode, cardId: sheet.cardId })}
+            onCreated={() => setSheet(null)}
+            onFocused={() => setSheet(null)}
+            onClose={() => setSheet(null)}
+          />
+        )
+      )}
     </div>
   );
 }

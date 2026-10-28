@@ -114,6 +114,10 @@ export const meetings = pgTable(
       .references(() => users.id),
     protocolId: ref("protocol_id").references(() => users.id),
     version: integer().notNull().default(0),
+    /** Gemeinsamer Fokus: die Karte, die gerade allen gezeigt wird. Ändert die Version nicht. */
+    focusCardId: ref("focus_card_id").references(() => cards.id),
+    focusBy: ref("focus_by").references(() => users.id),
+    focusSince: timestamp({ withTimezone: true }),
   },
   (t) => [
     uniqueIndex("meetings_board_number_idx").on(t.boardId, t.number),
@@ -128,7 +132,30 @@ export const meetings = pgTable(
         OR (${t.status} = 'ended' AND ${t.startedAt} IS NOT NULL AND ${t.endedAt} IS NOT NULL)`,
     ),
     check("meetings_roles_check", sql`${t.protocolId} IS NULL OR ${t.moderatorId} <> ${t.protocolId}`),
+    check(
+      "meetings_focus_check",
+      sql`(${t.focusCardId} IS NULL AND ${t.focusBy} IS NULL AND ${t.focusSince} IS NULL)
+        OR (${t.focusCardId} IS NOT NULL AND ${t.focusBy} IS NOT NULL AND ${t.focusSince} IS NOT NULL)`,
+    ),
   ],
+);
+
+/** Karten, die in einem Termin besprochen wurden (durch Zeigen oder manuell). */
+export const meetingDiscussed = pgTable(
+  "meeting_discussed",
+  {
+    meetingId: ref("meeting_id")
+      .notNull()
+      .references(() => meetings.id),
+    cardId: ref("card_id")
+      .notNull()
+      .references(() => cards.id),
+    markedBy: ref("marked_by")
+      .notNull()
+      .references(() => users.id),
+    markedAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.meetingId, t.cardId] })],
 );
 
 export const meetingCards = pgTable(
@@ -144,6 +171,7 @@ export const meetingCards = pgTable(
     description: text().notNull(),
     columnAtMeeting: smallint().notNull(),
     people: jsonb().$type<string[]>().notNull(),
+    discussed: boolean().notNull().default(false),
   },
   (t) => [primaryKey({ columns: [t.meetingId, t.cardId] })],
 );

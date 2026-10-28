@@ -20,6 +20,10 @@ Protokolliert werden mindestens:
 - Termin gestartet
 - Moderator oder Protokollant manuell geändert (vorher/nachher)
 - Termin beendet (inkl. neuem Moderator und Protokollant)
+- Karte als besprochen markiert (auch automatisch durch Zeigen), Markierung entfernt
+
+Das Zeigen einer Karte und das Beenden des Fokus selbst ändern keine Daten und
+werden nicht protokolliert.
 
 #### Scenario: Karte bearbeitet
 - **WHEN** Ben den Titel einer Karte von „Release“ auf „Release-Planung“ ändert
@@ -34,6 +38,15 @@ Protokolliert werden mindestens:
 - **WHEN** beim Beenden eines Termins Karten weiterrücken und archiviert werden
 - **THEN** ist das Teil des Eintrags „Termin beendet“ mit dem auslösenden
   Teilnehmer als Akteur
+
+#### Scenario: Durch Zeigen besprochen
+- **WHEN** Anna eine noch nicht besprochene Karte allen zeigt
+- **THEN** enthält das Audit-Log einen Eintrag „als besprochen markiert“ mit Anna als
+  Akteur, aber keinen Eintrag für das Zeigen selbst
+
+#### Scenario: Erneut gezeigt
+- **WHEN** Anna eine bereits besprochene Karte erneut allen zeigt
+- **THEN** entsteht kein weiterer Eintrag
 
 ### Requirement: Unveränderlich
 Audit-Einträge MUST NOT über die Anwendung geändert oder gelöscht werden können.

@@ -1,4 +1,4 @@
-import type { AuditAction, BoardChangedEvent, PresenceEvent, UserRef } from "@looptalk/shared";
+import type { BoardChangedEvent, BoardChangeReason, PresenceEvent, UserRef } from "@looptalk/shared";
 import type { Response } from "express";
 import type { BoardNotifier } from "../services";
 
@@ -62,7 +62,7 @@ export class RealtimeHub implements BoardNotifier {
     });
   }
 
-  boardChanged(boardId: number, reason: AuditAction): void {
+  boardChanged(boardId: number, reason: BoardChangeReason): void {
     const event: BoardChangedEvent = { reason };
     this.broadcast(boardId, "board", event);
   }

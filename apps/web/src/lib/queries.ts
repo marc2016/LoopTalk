@@ -117,5 +117,12 @@ export function useBoardActions(slug: string) {
     setActive: useBoardMutation(slug, ({ userId, active }: { userId: number; active: boolean }) =>
       api(`${base}/participants/${userId}`, { method: "PATCH", body: { active } }),
     ),
+    focus: useBoardMutation(slug, (cardId: number) =>
+      api(`${base}/meetings/current/focus`, { method: "PUT", body: { cardId } }),
+    ),
+    unfocus: useBoardMutation(slug, () => api(`${base}/meetings/current/focus`, { method: "DELETE" })),
+    setDiscussed: useBoardMutation(slug, ({ cardId, discussed }: { cardId: number; discussed: boolean }) =>
+      api(`${base}/meetings/current/discussed/${cardId}`, { method: discussed ? "PUT" : "DELETE" }),
+    ),
   };
 }
