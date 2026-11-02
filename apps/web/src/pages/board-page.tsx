@@ -26,6 +26,9 @@ export function BoardPage() {
   const sheetCard = sheet?.cardId != null ? (board.cards.find((c) => c.id === sheet.cardId) ?? null) : null;
   const sheetGone = sheet !== null && sheet.cardId !== null && sheetCard === null;
   const personalOpen = sheet !== null && !sheetGone;
+  // Wird in meiner eigenen Ansicht gerade ein Feld bearbeitet? Meldet der Zettel selbst.
+  const [personalEditing, setPersonalEditing] = useState(false);
+  const personalBusy = personalOpen && (sheet.mode === "create" || personalEditing);
 
   // Gemeinsamer Fokus: öffnet sich, solange ich ihn nicht selbst geschlossen habe und nicht beschäftigt bin.
   const [dismissedFocus, setDismissedFocus] = useState<string | null>(null);
@@ -33,9 +36,9 @@ export function BoardPage() {
   const focus = meeting.focus;
   const focusKey = focus ? `${focus.cardId}:${focus.since}` : null;
   const focusCard = focus ? (board.cards.find((c) => c.id === focus.cardId) ?? null) : null;
-  const busy = (personalOpen && sheet.mode !== "view") || otherDialogOpen;
+  const busy = personalBusy || otherDialogOpen;
   const focusOpen = focus !== null && focusCard !== null && focusKey !== dismissedFocus && !busy;
-  // Geht die Fokusansicht über einer persönlichen Ansicht im Lese-Modus auf, ersetzt sie diese
+  // Geht die Fokusansicht über einer persönlichen Ansicht ohne laufende Eingabe auf, ersetzt sie diese
   // endgültig: Nach dem Schließen des Fokus kommt nicht die alte Ansicht wieder hervor.
   if (focusOpen && sheet?.mode === "view") setSheet(null);
 
@@ -90,7 +93,7 @@ export function BoardPage() {
           busy={busy}
           onShow={() => {
             setDismissedFocus(null);
-            if (personalOpen && sheet.mode !== "view") return;
+            if (personalBusy) return;
             setSheet(null);
           }}
           onEnd={() => actions.unfocus.mutate(undefined)}
@@ -204,7 +207,7 @@ export function BoardPage() {
       </div>
 
       {focusOpen ? (
-        // Fokusansicht ersetzt eine offene Detailansicht; Bearbeiten wechselt in die eigene Ansicht.
+        // Fokusansicht ersetzt eine offene Detailansicht; bearbeitet wird direkt darin.
         <CardSheet
           key={`focus:${focusKey}`}
           slug={slug}
@@ -212,7 +215,6 @@ export function BoardPage() {
           card={focusCard}
           mode="view"
           focusBy={focus.by}
-          onModeChange={(mode) => setSheet({ mode, cardId: focusCard.id })}
           onCreated={() => undefined}
           onClose={() => setDismissedFocus(focusKey)}
         />
@@ -224,7 +226,7 @@ export function BoardPage() {
             board={board}
             card={sheetCard}
             mode={sheet.mode}
-            onModeChange={(mode) => setSheet({ mode, cardId: sheet.cardId })}
+            onBusyChange={setPersonalEditing}
             onCreated={() => setSheet(null)}
             onFocused={() => setSheet(null)}
             onClose={() => setSheet(null)}

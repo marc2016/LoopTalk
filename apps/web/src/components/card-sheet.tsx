@@ -1,15 +1,16 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { type BoardView, type CardColor, type CardView, createCardSchema, type UserRef } from "@looptalk/shared";
-import { CheckCircle2Icon, MonitorUpIcon, PencilIcon, Trash2Icon, XIcon } from "lucide-react";
-import { useEffect, useState } from "react";
-import { useForm, useWatch } from "react-hook-form";
+import { CheckCircle2Icon, MonitorUpIcon, Trash2Icon, XIcon } from "lucide-react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { Controller, useForm, useWatch } from "react-hook-form";
 import { toast } from "sonner";
 import type { z } from "zod";
 import { CardHistory } from "@/components/card-history";
+import { ColorPicker } from "@/components/color-picker";
 import { FieldError } from "@/components/field-error";
+import { InlineField, paperField } from "@/components/inline-field";
 import { PeoplePicker } from "@/components/people-picker";
 import { PersonAvatar, PersonBadge } from "@/components/person";
-import { Alert, AlertDescription } from "@/components/ui/alert";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -29,26 +30,25 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { formatDateTime } from "@/lib/format";
+import type { InlineFieldName } from "@/lib/inline-edit";
 import { lifecycle } from "@/lib/lifecycle";
-import { noteAge, noteColorNames, noteColors } from "@/lib/note";
+import { noteAge } from "@/lib/note";
 import { useBoardActions, useCardAudit } from "@/lib/queries";
 import { useGrowFromCard } from "@/lib/use-grow-from-card";
 import { cn } from "@/lib/utils";
 
-export type SheetMode = "view" | "edit" | "create";
+/** Bestehende Karten haben keinen Modus mehr: Bearbeitet wird direkt auf dem Zettel. */
+export type SheetMode = "view" | "create";
 
 /** Footer liegt auf dem Papier: ohne eigene Fläche, Rand und überstehende Ränder des Dialogs. */
 const paperFooter = "mx-0 mt-auto mb-0 rounded-none border-0 bg-transparent p-0 pt-2";
-/** Eingabefeld, das wie Schrift auf dem Zettel wirkt: transparent, nur eine gestrichelte Linie. */
-const paperField =
-  "rounded-none border-0 border-b border-dashed border-note-foreground/25 bg-transparent px-0 text-note-foreground shadow-none placeholder:text-note-muted/70 focus-visible:border-solid focus-visible:border-note-foreground focus-visible:ring-0";
 
 type FormInput = z.input<typeof createCardSchema>;
 type FormOutput = z.output<typeof createCardSchema>;
 
 /**
- * Großer Zettel: wächst aus dem kleinen Zettel auf dem Board. Lesen, Bearbeiten auf dem
- * Papier, Anlegen eines neuen Themas. Mit `focusBy` ist er die gemeinsame Fokusansicht.
+ * Großer Zettel: wächst aus dem kleinen Zettel auf dem Board. Lesen und Bearbeiten direkt
+ * auf dem Papier, Anlegen eines neuen Themas. Mit `focusBy` ist er die gemeinsame Fokusansicht.
  */
 export function CardSheet({
   slug,
@@ -56,7 +56,7 @@ export function CardSheet({
   card,
   mode,
   focusBy = null,
-  onModeChange,
+  onBusyChange,
   onCreated,
   onFocused,
   onClose,
@@ -67,7 +67,8 @@ export function CardSheet({
   card: CardView | null;
   mode: SheetMode;
   focusBy?: UserRef | null;
-  onModeChange: (mode: SheetMode) => void;
+  /** Wird gerade ein Feld bearbeitet? Dann soll der gemeinsame Fokus nicht dazwischenfunken. */
+  onBusyChange?: (busy: boolean) => void;
   onCreated: (cardId: number) => void;
   /** Ich habe die Karte allen gezeigt: Die Fokusansicht übernimmt. */
   onFocused?: () => void;
@@ -75,9 +76,28 @@ export function CardSheet({
 }) {
   const { attach, close } = useGrowFromCard(card?.id ?? null);
   const requestClose = () => close(onClose);
-  // Beim Bearbeiten färbt die gewählte Farbe das Papier sofort um, gespeichert wird erst später.
-  const [draftColor, setDraftColor] = useState<CardColor | null>(null);
-  const paperColor = (mode !== "view" && draftColor) || card?.color || "yellow";
+  // Beim Anlegen färbt die gewählte Farbe das Papier sofort um, gespeichert wird mit „Anlegen“.
+  const [draftColor, setDraftColor] = useState<CardColor>("yellow");
+  // Direkt gewählte Farbe, bis der Live-Stand sie hat; `from` ist die Farbe beim Klick.
+  const [pendingColor, setPendingColor] = useState<{ color: CardColor; from: CardColor } | null>(null);
+  const liveColor = card?.color ?? "yellow";
+  const paperColor =
+    mode === "create" ? draftColor : pendingColor && pendingColor.from === liveColor ? pendingColor.color : liveColor;
+
+  // Welche Felder gerade bearbeitet werden. Der Ref ist für Escape synchron aktuell.
+  const editingFields = useRef(new Set<InlineFieldName>());
+  const latestBusy = useRef(onBusyChange);
+  useEffect(() => {
+    latestBusy.current = onBusyChange;
+  });
+  const onEditingChange = useCallback((field: InlineFieldName, editing: boolean) => {
+    const fields = editingFields.current;
+    const before = fields.size > 0;
+    if (editing) fields.add(field);
+    else fields.delete(field);
+    const after = fields.size > 0;
+    if (before !== after) latestBusy.current?.(after);
+  }, []);
 
   return (
     <Dialog open onOpenChange={(open) => !open && requestClose()}>
@@ -86,6 +106,8 @@ export function CardSheet({
         data-card-sheet={focusBy ? "focus" : "personal"}
         data-color={paperColor}
         data-age={card ? noteAge(card.column) : 3}
+        // Escape in einem Feld verwirft nur die Eingabe, der Zettel bleibt offen.
+        onEscapeKeyDown={(e) => editingFields.current.size > 0 && e.preventDefault()}
         // Eigene Wachsen-Animation statt der eingebauten Zoom-Animation des Dialogs.
         style={{ animation: "none" }}
         className={cn(
@@ -98,19 +120,21 @@ export function CardSheet({
             slug={slug}
             board={board}
             card={card}
+            color={paperColor}
             focusBy={focusBy}
-            onEdit={() => onModeChange("edit")}
+            onColorChange={(color) => setPendingColor({ color, from: liveColor })}
+            onColorFailed={() => setPendingColor(null)}
+            onEditingChange={onEditingChange}
             onFocused={onFocused}
+            onDeleted={onClose}
           />
         ) : (
-          <CardForm
+          <CreateCardForm
             slug={slug}
             board={board}
-            card={card}
             onColorChange={setDraftColor}
-            onCancel={() => (card ? onModeChange("view") : requestClose())}
-            onSaved={(id) => (card ? onModeChange("view") : onCreated(id))}
-            onDeleted={onClose}
+            onCancel={requestClose}
+            onCreated={onCreated}
           />
         )}
       </DialogContent>
@@ -122,22 +146,45 @@ function CardDetails({
   slug,
   board,
   card,
+  color,
   focusBy,
-  onEdit,
+  onColorChange,
+  onColorFailed,
+  onEditingChange,
   onFocused,
+  onDeleted,
 }: {
   slug: string;
   board: BoardView;
   card: CardView;
+  /** Farbe, die der Zettel gerade zeigt (auch eine eben gewählte, noch nicht bestätigte). */
+  color: CardColor;
   focusBy: UserRef | null;
-  onEdit: () => void;
+  onColorChange: (color: CardColor) => void;
+  onColorFailed: () => void;
+  onEditingChange: (field: InlineFieldName, editing: boolean) => void;
   onFocused?: () => void;
+  onDeleted: () => void;
 }) {
   const actions = useBoardActions(slug);
+  const audit = useCardAudit(slug, card.id);
+  const lastEditor = audit.data?.filter((e) => e.action === "card.updated").at(-1)?.actor.name ?? "Jemand";
   const { meeting } = board;
   const running = meeting.status === "running";
   const life = lifecycle(card.column, meeting.number);
   const isFocus = meeting.focus?.cardId === card.id;
+
+  const changeColor = (next: CardColor) => {
+    if (next === color) return;
+    onColorChange(next);
+    actions.updateCard.mutate({ id: card.id, color: next }, { onError: onColorFailed });
+  };
+
+  const remove = async () => {
+    await actions.deleteCard.mutateAsync(card.id);
+    toast.success(`Thema „${card.title}“ gelöscht`);
+    onDeleted();
+  };
 
   return (
     <>
@@ -165,22 +212,34 @@ function CardDetails({
             </span>
           )}
         </div>
-        <DialogTitle className={cn("text-2xl leading-tight font-semibold tracking-tight", focusBy && "text-3xl")}>
-          {card.title}
+        {/* Als div mit Überschrift-Rolle: Beim Bearbeiten stehen Feld und Hinweis darin. */}
+        <DialogTitle asChild>
+          <div role="heading" aria-level={2}>
+            <InlineField
+            slug={slug}
+            cardId={card.id}
+            field="title"
+            value={card.title}
+            lastEditor={lastEditor}
+            className={cn("text-2xl leading-tight font-semibold tracking-tight md:text-2xl", focusBy && "text-3xl md:text-3xl")}
+            onEditingChange={onEditingChange}
+            />
+          </div>
         </DialogTitle>
-        <DialogDescription className="sr-only">Thema im Detail</DialogDescription>
+        <DialogDescription className="sr-only">Thema im Detail, direkt bearbeitbar</DialogDescription>
       </DialogHeader>
 
-      {card.description ? (
-        <p
-          className={cn("text-base leading-relaxed break-words whitespace-pre-line", focusBy && "text-lg")}
-          data-testid="card-description"
-        >
-          {card.description}
-        </p>
-      ) : (
-        <p className="text-sm text-note-muted italic">Keine Beschreibung.</p>
-      )}
+      <InlineField
+        slug={slug}
+        cardId={card.id}
+        field="description"
+        value={card.description}
+        lastEditor={lastEditor}
+        placeholder="Beschreibung ergänzen …"
+        testId="card-description"
+        className={cn("text-base leading-relaxed md:text-base", focusBy && "text-lg md:text-lg")}
+        onEditingChange={onEditingChange}
+      />
 
       <section className="grid gap-2" aria-label="Namen">
         <div className="flex flex-wrap items-center gap-2">
@@ -207,6 +266,8 @@ function CardDetails({
         </p>
       </section>
 
+      <ColorPicker value={color} onChange={changeColor} />
+
       <details className="group rounded-md border border-note-foreground/15 bg-white/40 px-3 py-2">
         <summary className="cursor-pointer text-sm font-medium select-none">Verlauf</summary>
         <div className="pt-3">
@@ -227,7 +288,35 @@ function CardDetails({
         ) : (
           <span />
         )}
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                aria-label="Löschen"
+                title="Löschen"
+                className="text-note-muted hover:bg-destructive/10 hover:text-destructive"
+              >
+                <Trash2Icon aria-hidden />
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Thema „{card.title}“ löschen?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  Das Thema verschwindet bei allen vom Board. Im Audit-Log bleibt nachvollziehbar, wer es gelöscht hat.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Abbrechen</AlertDialogCancel>
+                <AlertDialogAction variant="destructive" onClick={() => void remove()}>
+                  Löschen
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
           {running &&
             (isFocus ? (
               <Button variant="outline" onClick={() => actions.unfocus.mutate(undefined)}>
@@ -246,107 +335,55 @@ function CardDetails({
                 Allen zeigen
               </Button>
             ))}
-          <Button onClick={onEdit}>
-            <PencilIcon aria-hidden />
-            Bearbeiten
-          </Button>
         </div>
       </DialogFooter>
     </>
   );
 }
 
-function CardForm({
+/** Neues Thema: Die Karte gibt es noch nicht, deshalb ein Formular mit „Anlegen“. */
+function CreateCardForm({
   slug,
   board,
-  card,
   onColorChange,
   onCancel,
-  onSaved,
-  onDeleted,
+  onCreated,
 }: {
   slug: string;
   board: BoardView;
-  card: CardView | null;
   onColorChange: (color: CardColor) => void;
   onCancel: () => void;
-  onSaved: (cardId: number) => void;
-  onDeleted: () => void;
+  onCreated: (cardId: number) => void;
 }) {
   const actions = useBoardActions(slug);
-  // Stand beim Öffnen des Formulars: Weicht die Live-Karte davon ab, hat jemand anderes geändert.
-  const [base, setBase] = useState(() => ({
-    title: card?.title ?? "",
-    description: card?.description ?? "",
-    color: card?.color ?? "yellow",
-  }));
   const form = useForm<FormInput, unknown, FormOutput>({
     resolver: zodResolver(createCardSchema),
-    defaultValues: base,
+    defaultValues: { title: "", description: "", color: "yellow" },
   });
   const color = useWatch({ control: form.control, name: "color" }) ?? "yellow";
   useEffect(() => onColorChange(color), [color, onColorChange]);
-  const audit = useCardAudit(slug, card?.id ?? null);
-  const changedByOther =
-    card !== null && (card.title !== base.title || card.description !== base.description || card.color !== base.color);
-  const lastEditor = audit.data?.filter((e) => e.action === "card.updated").at(-1)?.actor.name ?? "Jemand";
   const focus = board.meeting.focus;
   const focusTitle = focus ? board.cards.find((c) => c.id === focus.cardId)?.title : null;
 
   const submit = form.handleSubmit(async (values) => {
     try {
-      if (card) {
-        await actions.updateCard.mutateAsync({ id: card.id, ...values });
-        onSaved(card.id);
-      } else {
-        const created = await actions.createCard.mutateAsync(values);
-        onSaved(created.id);
-      }
+      const created = await actions.createCard.mutateAsync(values);
+      onCreated(created.id);
     } catch {
       // Fehler zeigt die Mutation als Hinweis an.
     }
   });
 
-  const takeOver = () => {
-    if (!card) return;
-    const next = { title: card.title, description: card.description, color: card.color };
-    setBase(next);
-    form.reset(next);
-  };
-
-  const remove = async () => {
-    if (!card) return;
-    await actions.deleteCard.mutateAsync(card.id);
-    toast.success(`Thema „${card.title}“ gelöscht`);
-    onDeleted();
-  };
-
   return (
     <form onSubmit={submit} className="flex flex-1 flex-col gap-4">
       <DialogHeader>
-        <DialogTitle className="text-xs font-medium tracking-wide text-note-muted uppercase">
-          {card ? "Thema bearbeiten" : "Neues Thema"}
-        </DialogTitle>
-        <DialogDescription className="text-xs text-note-muted">
-          {card ? `angelegt von ${card.createdBy.name}` : "Neue Themen landen in der Spalte „Neu“."}
-        </DialogDescription>
+        <DialogTitle className="text-xs font-medium tracking-wide text-note-muted uppercase">Neues Thema</DialogTitle>
+        <DialogDescription className="text-xs text-note-muted">Neue Themen landen in der Spalte „Neu“.</DialogDescription>
       </DialogHeader>
 
-      {changedByOther && (
-        <Alert className="border-warning-foreground/20 bg-warning text-warning-foreground" data-testid="edit-conflict">
-          <AlertDescription className="flex flex-wrap items-center justify-between gap-2 text-warning-foreground">
-            {lastEditor} hat dieses Thema gerade geändert.
-            <Button type="button" size="sm" variant="outline" onClick={takeOver}>
-              Neuen Stand übernehmen
-            </Button>
-          </AlertDescription>
-        </Alert>
-      )}
       {focus && focusTitle && (
         <p className="text-sm text-note-muted" data-testid="focus-waiting">
-          {focus.cardId === card?.id
-            ? `${focus.by.name} zeigt gerade dieses Thema („${focusTitle}“) allen.`
-            : `${focus.by.name} zeigt gerade „${focusTitle}“. Es öffnet sich, sobald du hier fertig bist.`}
+          {`${focus.by.name} zeigt gerade „${focusTitle}“. Es öffnet sich, sobald du hier fertig bist.`}
         </p>
       )}
 
@@ -377,66 +414,19 @@ function CardForm({
         />
         <FieldError message={form.formState.errors.description?.message} />
       </div>
-      <fieldset className="grid gap-2">
-        <legend className="mb-2 text-xs font-medium tracking-wide text-note-muted uppercase">Farbe</legend>
-        {/* Native Radios: Pfeiltasten und Screenreader funktionieren ohne Zusatzlogik. */}
-        <div className="flex flex-wrap gap-2.5" data-testid="color-picker">
-          {noteColors.map((color) => (
-            <label key={color} className="relative cursor-pointer" title={noteColorNames[color]}>
-              <input
-                type="radio"
-                value={color}
-                aria-label={noteColorNames[color]}
-                className="peer sr-only"
-                {...form.register("color")}
-              />
-              <span
-                className={cn(
-                  "block size-8 rounded-full border border-note-foreground/15 shadow-xs transition-transform",
-                  "peer-checked:scale-110 peer-checked:ring-2 peer-checked:ring-note-foreground peer-checked:ring-offset-2",
-                  "peer-focus-visible:ring-3 peer-focus-visible:ring-ring/50",
-                )}
-                style={{ backgroundColor: `var(--note-${color})` }}
-                aria-hidden
-              />
-            </label>
-          ))}
-        </div>
-      </fieldset>
+      <Controller
+        control={form.control}
+        name="color"
+        render={({ field }) => <ColorPicker value={field.value ?? "yellow"} onChange={field.onChange} />}
+      />
 
-      <DialogFooter className={cn(paperFooter, "sm:justify-between")}>
-        {card ? (
-          <AlertDialog>
-            <AlertDialogTrigger asChild>
-              <Button type="button" variant="destructive">
-                <Trash2Icon aria-hidden />
-                Löschen
-              </Button>
-            </AlertDialogTrigger>
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogTitle>Thema „{card.title}“ löschen?</AlertDialogTitle>
-                <AlertDialogDescription>
-                  Das Thema verschwindet bei allen vom Board. Im Audit-Log bleibt nachvollziehbar, wer es gelöscht hat.
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel>Abbrechen</AlertDialogCancel>
-                <AlertDialogAction variant="destructive" onClick={() => void remove()}>
-                  Löschen
-                </AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
-        ) : (
-          <span />
-        )}
+      <DialogFooter className={cn(paperFooter, "sm:justify-end")}>
         <div className="flex gap-2">
           <Button type="button" variant="outline" onClick={onCancel}>
             Abbrechen
           </Button>
           <Button type="submit" disabled={form.formState.isSubmitting}>
-            {card ? "Speichern" : "Anlegen"}
+            Anlegen
           </Button>
         </div>
       </DialogFooter>

@@ -4,6 +4,10 @@ import { addCard, closeSheet, createBoard, login, startAndEnd } from "./helpers"
 const sheet = (page: Page) => page.locator("[data-card-sheet]");
 const focusSheet = (page: Page) => page.locator('[data-card-sheet="focus"]');
 const openCard = (page: Page, title: string) => page.getByTestId("topic-card").filter({ hasText: title }).click();
+const editTitle = (page: Page) => sheet(page).getByRole("button", { name: /^Titel bearbeiten/ });
+const editDescription = (page: Page) => sheet(page).getByRole("button", { name: /^Beschreibung bearbeiten/ });
+const titleBox = (page: Page) => sheet(page).getByRole("textbox", { name: "Titel" });
+const descriptionBox = (page: Page) => sheet(page).getByRole("textbox", { name: "Beschreibung" });
 
 async function showToAll(page: Page, title: string) {
   await openCard(page, title);
@@ -11,14 +15,14 @@ async function showToAll(page: Page, title: string) {
   await expect(focusSheet(page)).toBeVisible();
 }
 
-test("Detailansicht: lesen, bearbeiten, abbrechen, Hinweis bei gleichzeitigem Bearbeiten", async ({ browser }) => {
+test("Detailansicht: direkt auf dem Zettel bearbeiten, verwerfen, Konflikt am Feld, löschen", async ({ browser }) => {
   const anna = await login(browser, "anna@example.com");
   const path = await createBoard(anna, `E2E-Detail ${Date.now()}`);
   const ben = await login(browser, "ben@example.com", path);
   await expect(ben.getByRole("heading", { level: 1 })).toBeVisible();
   await addCard(anna, "Release");
 
-  // Groß öffnen (wächst aus der Karte), ohne Eingabefelder, mit „Bearbeiten“, ohne „Löschen“; nur bei Anna
+  // Groß öffnen (wächst aus der Karte), ohne offene Eingabefelder, ohne „Bearbeiten“, mit „Löschen“; nur bei Anna
   const grows = anna.waitForFunction(
     () => document.querySelector("[data-card-sheet]")?.getAnimations().length,
     undefined,
@@ -28,34 +32,69 @@ test("Detailansicht: lesen, bearbeiten, abbrechen, Hinweis bei gleichzeitigem Be
   await grows;
   await expect(sheet(anna).getByRole("heading", { name: "Release" })).toBeVisible();
   await expect(sheet(anna).getByRole("textbox")).toHaveCount(0);
-  await expect(sheet(anna).getByRole("button", { name: "Bearbeiten" })).toBeVisible();
-  await expect(sheet(anna).getByRole("button", { name: "Löschen" })).toHaveCount(0);
+  await expect(sheet(anna).getByRole("button", { name: "Bearbeiten", exact: true })).toHaveCount(0);
+  await expect(sheet(anna).getByRole("button", { name: "Löschen" })).toBeVisible();
   await expect(sheet(ben)).toHaveCount(0);
 
-  // Änderung durch Ben erscheint live in Annas Detailansicht
+  // Ben ergänzt die Beschreibung; Verlassen des Felds speichert, Anna sieht es live
   await openCard(ben, "Release");
-  await sheet(ben).getByRole("button", { name: "Bearbeiten" }).click();
-  await ben.getByLabel("Beschreibung (optional)").fill("Erste Fassung");
-  await ben.getByRole("button", { name: "Speichern" }).click();
-  await expect(sheet(anna).getByTestId("card-description")).toHaveText("Erste Fassung");
+  await editDescription(ben).click();
+  await descriptionBox(ben).fill("Erste Fassung");
+  await ben.keyboard.press("Tab");
+  await expect(descriptionBox(ben)).toHaveCount(0);
+  await expect(sheet(anna).getByTestId("card-description")).toContainText("Erste Fassung");
 
-  // Abbrechen verwirft, Löschen nur im Bearbeiten-Modus
-  await sheet(anna).getByRole("button", { name: "Bearbeiten" }).click();
-  await expect(sheet(anna).getByRole("button", { name: "Löschen" })).toBeVisible();
-  await anna.getByLabel("Titel").fill("Verworfen");
-  await sheet(anna).getByRole("button", { name: "Abbrechen" }).click();
+  // Escape verwirft nur die Eingabe, der Zettel bleibt offen
+  await editTitle(anna).click();
+  await titleBox(anna).fill("Verworfen");
+  await anna.keyboard.press("Escape");
+  await expect(sheet(anna)).toBeVisible();
+  await expect(titleBox(anna)).toHaveCount(0);
   await expect(sheet(anna).getByRole("heading", { name: "Release" })).toBeVisible();
 
-  // Gleichzeitig bearbeiten: Anna bekommt einen Hinweis, ihre Eingabe bleibt
-  await sheet(anna).getByRole("button", { name: "Bearbeiten" }).click();
-  await anna.getByLabel("Titel").fill("Release-Planung");
-  await sheet(ben).getByRole("button", { name: "Bearbeiten" }).click();
-  await ben.getByLabel("Beschreibung (optional)").fill("Zweite Fassung");
-  await ben.getByRole("button", { name: "Speichern" }).click();
+  // Leerer Titel wird nicht gespeichert, das Feld zeigt den Fehler
+  await editTitle(anna).click();
+  await titleBox(anna).fill("");
+  await anna.keyboard.press("Enter");
+  await expect(sheet(anna).getByText("Bitte einen Titel angeben.")).toBeVisible();
+  await expect(titleBox(anna)).toBeVisible();
+  await anna.keyboard.press("Escape");
+
+  // Gleichzeitig am Titel: Anna bekommt am Titel einen Hinweis, ihre Eingabe bleibt;
+  // die Beschreibung, die Ben ebenfalls ändert, aktualisiert sich bei ihr trotzdem live
+  await editTitle(anna).click();
+  await titleBox(anna).fill("Release-Planung");
+  await editTitle(ben).click();
+  await titleBox(ben).fill("Release 2027");
+  await ben.keyboard.press("Enter");
+  await editDescription(ben).click();
+  await descriptionBox(ben).fill("Zweite Fassung");
+  await ben.keyboard.press("Tab");
   await expect(anna.getByTestId("edit-conflict")).toContainText("Ben hat dieses Thema gerade geändert.");
-  await expect(anna.getByLabel("Titel")).toHaveValue("Release-Planung");
-  await anna.getByRole("button", { name: "Speichern" }).click();
-  await expect(sheet(anna).getByRole("heading", { name: "Release-Planung" })).toBeVisible();
+  await expect(titleBox(anna)).toHaveValue("Release-Planung");
+  await expect(sheet(anna).getByTestId("card-description")).toContainText("Zweite Fassung");
+
+  // Neuen Stand übernehmen, dann doch die eigene Fassung speichern
+  await anna.getByRole("button", { name: "Neuen Stand übernehmen" }).click();
+  await expect(titleBox(anna)).toHaveValue("Release 2027");
+  await expect(anna.getByTestId("edit-conflict")).toHaveCount(0);
+  await titleBox(anna).fill("Release-Planung");
+  await anna.keyboard.press("Enter");
+  await expect(sheet(ben).getByRole("heading", { name: "Release-Planung" })).toBeVisible();
+
+  // Schließen mit offener Eingabe speichert sie
+  await editDescription(anna).click();
+  await descriptionBox(anna).fill("Beim Schließen gespeichert");
+  await closeSheet(anna);
+  await expect(sheet(ben).getByTestId("card-description")).toContainText("Beim Schließen gespeichert");
+
+  // Löschen direkt auf dem Zettel, mit Bestätigung; Bens Ansicht schließt sich
+  await openCard(anna, "Release-Planung");
+  await sheet(anna).getByRole("button", { name: "Löschen" }).click();
+  await anna.getByRole("alertdialog").getByRole("button", { name: "Löschen" }).click();
+  await expect(sheet(anna)).toBeHidden();
+  await expect(sheet(ben)).toBeHidden();
+  await expect(ben.getByTestId("topic-card").filter({ hasText: "Release-Planung" })).toHaveCount(0);
 });
 
 test("Gemeinsamer Fokus: zeigen, lokal schließen, wechseln, nicht unterbrechen, später dazukommen, beenden", async ({
@@ -91,15 +130,40 @@ test("Gemeinsamer Fokus: zeigen, lokal schließen, wechseln, nicht unterbrechen,
   await showToAll(anna, "Budget");
   await expect(focusSheet(ben).getByRole("heading", { name: "Budget" })).toBeVisible();
 
-  // Ben bearbeitet gerade: keine Unterbrechung, nur Hinweis; danach öffnet sich der Fokus
-  await closeSheet(ben);
-  await openCard(ben, "Release-Planung");
-  await sheet(ben).getByRole("button", { name: "Bearbeiten" }).click();
+  // Im Fokus bearbeiten alle: Ben ergänzt die Beschreibung und färbt den Zettel grün
+  await editDescription(ben).click();
+  await descriptionBox(ben).fill("Kosten für Q1");
+  await ben.keyboard.press("Tab");
+  await expect(focusSheet(anna).getByTestId("card-description")).toContainText("Kosten für Q1");
+  await focusSheet(ben).getByRole("radio", { name: "Grün" }).check({ force: true });
+  await expect(focusSheet(anna)).toHaveAttribute("data-color", "green");
+  await expect(focusSheet(ben)).toHaveAttribute("data-color", "green");
+
+  // Fokuswechsel während Bens Eingabe: Sie wird gespeichert, Ben folgt dem Fokus
+  await editDescription(ben).click();
+  await descriptionBox(ben).fill("Kosten für Q1 und Q2");
   await closeSheet(anna);
   await showToAll(anna, "Release-Planung");
-  await expect(ben.getByLabel("Titel")).toBeVisible();
-  await expect(ben.getByTestId("focus-waiting")).toContainText("Anna zeigt gerade dieses Thema („Release-Planung“) allen.");
-  await sheet(ben).getByRole("button", { name: "Abbrechen" }).click();
+  await expect(focusSheet(ben).getByRole("heading", { name: "Release-Planung" })).toBeVisible();
+  await expect(ben.getByTestId("topic-card").filter({ hasText: "Budget" })).toContainText("Kosten für Q1 und Q2");
+
+  // Ohne laufende Eingabe übernimmt der Fokus die eigene Ansicht
+  await closeSheet(ben);
+  await openCard(ben, "Budget");
+  await closeSheet(anna);
+  await showToAll(anna, "Budget");
+  await expect(focusSheet(ben).getByRole("heading", { name: "Budget" })).toBeVisible();
+
+  // Ben schreibt gerade in seiner eigenen Ansicht: keine Unterbrechung, nur die Leiste;
+  // sobald er das Feld verlässt, öffnet sich der Fokus
+  await closeSheet(ben);
+  await openCard(ben, "Release-Planung");
+  await editTitle(ben).click();
+  await closeSheet(anna);
+  await showToAll(anna, "Release-Planung");
+  await expect(titleBox(ben)).toBeVisible();
+  await expect(ben.getByTestId("focus-bar")).toContainText("Anna zeigt: Release-Planung");
+  await ben.keyboard.press("Escape");
   await expect(focusSheet(ben).getByRole("heading", { name: "Release-Planung" })).toBeVisible();
 
   // Später dazukommen: Carla sieht den Fokus sofort

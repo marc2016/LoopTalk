@@ -37,19 +37,18 @@ test("zwei Personen arbeiten live auf einem Board und schließen einen Termin ab
   await ben.getByPlaceholder("Name eingeben …").fill("Carla");
   await ben.getByRole("option", { name: "„Carla“ hinzufügen" }).click();
   await expect(ben.getByRole("region", { name: "Namen" }).getByText("Carla")).toBeVisible();
-  await ben.getByRole("button", { name: "Bearbeiten" }).click();
-  await ben.getByLabel("Beschreibung (optional)").fill("Was steht für Q1 an?");
-  await ben.getByRole("button", { name: "Speichern" }).click();
-  await expect(ben.getByTestId("card-description")).toHaveText("Was steht für Q1 an?");
+  await ben.getByRole("button", { name: /^Beschreibung bearbeiten/ }).click();
+  await ben.getByRole("textbox", { name: "Beschreibung" }).fill("Was steht für Q1 an?");
+  await ben.keyboard.press("Control+Enter");
+  await expect(ben.getByTestId("card-description")).toContainText("Was steht für Q1 an?");
   await closeSheet(ben);
   const annaCard = anna.getByTestId("column-1").getByTestId("topic-card").filter({ hasText: "Release-Planung" });
   await expect(annaCard.getByText("Was steht für Q1 an?")).toBeVisible();
   await expect(annaCard.getByText("Carla")).toBeVisible();
 
-  // Anna legt ein zweites Thema an und löscht es wieder (Löschen gibt es nur beim Bearbeiten)
+  // Anna legt ein zweites Thema an und löscht es direkt auf dem Zettel wieder
   await addCard(anna, "Weg damit");
   await anna.getByTestId("column-1").getByText("Weg damit").click();
-  await anna.getByRole("button", { name: "Bearbeiten" }).click();
   await anna.getByRole("dialog").getByRole("button", { name: "Löschen" }).click();
   await anna.getByRole("alertdialog").getByRole("button", { name: "Löschen" }).click();
   await expect(ben.getByText("Weg damit")).toBeHidden();

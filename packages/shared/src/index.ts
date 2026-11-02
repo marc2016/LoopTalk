@@ -18,12 +18,12 @@ export const boardNameSchema = z
 export const createBoardSchema = z.strictObject({ name: boardNameSchema });
 export const renameBoardSchema = createBoardSchema;
 
-const cardTitleSchema = z
+export const cardTitleSchema = z
   .string()
   .trim()
   .min(1, "Bitte einen Titel angeben.")
   .max(200, "Der Titel darf höchstens 200 Zeichen lang sein.");
-const cardDescriptionSchema = z
+export const cardDescriptionSchema = z
   .string()
   .trim()
   .max(5000, "Die Beschreibung darf höchstens 5000 Zeichen lang sein.");
