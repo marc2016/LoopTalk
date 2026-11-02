@@ -167,6 +167,32 @@ describe("Karten", () => {
     expect(history[5]!.data).toMatchObject({ before: { title: "Release-Planung", people: ["Ben"] } });
   });
 
+  it("Zettelfarbe: Standard gelb, beim Anlegen wählbar, Änderung mit Audit und Live-Event", async () => {
+    const s = services(t.db);
+    const anna = await createUser(t.db, "Anna");
+    const ben = await createUser(t.db, "Ben");
+    const board = await s.boards.open((await s.boards.create(anna, "Board")).slug, anna);
+
+    const budget = await s.cards.create(board, anna, { title: "Budget", description: "" });
+    const hiring = await s.cards.create(board, anna, { title: "Hiring", description: "", color: "green" });
+    s.notifier.events = [];
+    await s.cards.update(board, ben, budget.id, { color: "blue" });
+    await s.cards.update(board, ben, hiring.id, { color: "green" }); // unverändert, kein Eintrag
+
+    const view = await s.boards.view(board);
+    expect(view.cards.map((c) => [c.title, c.color])).toEqual([
+      ["Budget", "blue"],
+      ["Hiring", "green"],
+    ]);
+    expect(s.notifier.events.map((e) => e.reason)).toEqual(["card.updated"]);
+    const history = await s.audit.card(board.id, budget.id);
+    expect(history.map((e) => [e.action, e.actor.name])).toEqual([
+      ["card.created", "Anna"],
+      ["card.updated", "Ben"],
+    ]);
+    expect(history[1]!.data).toMatchObject({ before: { color: "yellow" }, after: { color: "blue" } });
+  });
+
   it("Namen nur mit Teilnehmer-ID des Boards", async () => {
     const s = services(t.db);
     const anna = await createUser(t.db, "Anna");
@@ -245,6 +271,19 @@ describe("Termine", () => {
     // Archivierung erscheint im Verlauf der Karte
     const cHistory = await s.audit.card(board.id, c.id);
     expect(cHistory.map((e) => e.action)).toEqual(["card.created", "meeting.ended"]);
+  });
+
+  it("Historie hält die Zettelfarbe zum Zeitpunkt des Termins fest", async () => {
+    const { s, ids, board } = await boardWith(["Anna", "Ben"]);
+    const [anna] = ids;
+    const budget = await s.cards.create(board, anna!, { title: "Budget", description: "", color: "green" });
+    await s.meetings.start(board, anna!, 0);
+    await s.meetings.end(board, anna!, 1);
+    await s.cards.update(board, anna!, budget.id, { color: "blue" });
+
+    const history = await s.meetings.history(board);
+    expect(history[0]!.cards.map((c) => [c.title, c.color])).toEqual([["Budget", "green"]]);
+    expect((await s.boards.view(board)).cards[0]!.color).toBe("blue");
   });
 
   it("doppelter Start und doppeltes Beenden werden abgelehnt, ohne Audit-Eintrag", async () => {

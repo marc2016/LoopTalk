@@ -28,9 +28,14 @@ const cardDescriptionSchema = z
   .trim()
   .max(5000, "Die Beschreibung darf höchstens 5000 Zeichen lang sein.");
 
+/** Feste Zettelfarben; gespeichert wird der Name, nie ein Farbwert. */
+export const CARD_COLORS = ["yellow", "orange", "pink", "green", "blue", "purple"] as const;
+export const cardColorSchema = z.enum(CARD_COLORS, "Unbekannte Farbe.");
+
 export const createCardSchema = z.strictObject({
   title: cardTitleSchema,
   description: cardDescriptionSchema.default(""),
+  color: cardColorSchema.default("yellow"),
 });
 
 /** Die Spalte ist bewusst nicht enthalten: Karten werden nie manuell verschoben. */
@@ -38,8 +43,9 @@ export const updateCardSchema = z
   .strictObject({
     title: cardTitleSchema.optional(),
     description: cardDescriptionSchema.optional(),
+    color: cardColorSchema.optional(),
   })
-  .refine((v) => v.title !== undefined || v.description !== undefined, {
+  .refine((v) => v.title !== undefined || v.description !== undefined || v.color !== undefined, {
     message: "Keine Änderung angegeben.",
   });
 
@@ -127,10 +133,13 @@ export interface CardPerson {
   userId: number | null;
 }
 
+export type CardColor = (typeof CARD_COLORS)[number];
+
 export interface CardView {
   id: number;
   title: string;
   description: string;
+  color: CardColor;
   column: Column;
   createdBy: UserRef;
   createdAt: string;
@@ -174,6 +183,7 @@ export interface MeetingCardSnapshot {
   cardId: number;
   title: string;
   description: string;
+  color: CardColor;
   column: Column;
   people: string[];
   discussed: boolean;

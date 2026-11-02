@@ -3,6 +3,7 @@ import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { formatDateTime } from "@/lib/format";
 import { columnTitle } from "@/lib/lifecycle";
+import { noteColorNames } from "@/lib/note";
 import { useHistory } from "@/lib/queries";
 import { cn } from "@/lib/utils";
 import { useBoardContext } from "./board-layout";
@@ -45,7 +46,15 @@ export function HistoryPage() {
                         key={c.cardId}
                         className={cn("flex flex-wrap items-center gap-2", !c.discussed && "text-muted-foreground")}
                         data-discussed={c.discussed}
+                        data-color={c.color}
                       >
+                        {/* Zettelfarbe von damals als kleines Quadrat, ohne Papier-Look. */}
+                        <span
+                          className="size-3 shrink-0 rounded-[2px] border border-note-foreground/15"
+                          style={{ backgroundColor: `var(--note-${c.color})` }}
+                          title={noteColorNames[c.color]}
+                          aria-hidden
+                        />
                         <Badge variant="outline">{columnTitle(c.column)}</Badge>
                         <span>{c.title}</span>
                         {c.discussed ? (

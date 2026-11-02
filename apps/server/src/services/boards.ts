@@ -183,6 +183,7 @@ export async function loadBoardView(exec: Executor, board: BoardRow): Promise<Bo
     id: card.id,
     title: card.title,
     description: card.description,
+    color: card.color,
     column: card.column as CardView["column"],
     createdBy: creator,
     createdAt: card.createdAt.toISOString(),

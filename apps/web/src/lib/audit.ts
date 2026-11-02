@@ -1,4 +1,5 @@
-import type { AuditAction, AuditEntry, UserRef } from "@looptalk/shared";
+import type { AuditAction, AuditEntry, CardColor, UserRef } from "@looptalk/shared";
+import { noteColorNames } from "./note";
 
 export const actionLabels: Record<AuditAction, string> = {
   "board.created": "Board erstellt",
@@ -21,6 +22,7 @@ export const actionLabels: Record<AuditAction, string> = {
 type Data = Record<string, unknown>;
 const obj = (v: unknown): Data => (v && typeof v === "object" ? (v as Data) : {});
 const str = (v: unknown): string => (typeof v === "string" ? v : "");
+const colorName = (v: unknown): string => noteColorNames[str(v) as CardColor] ?? str(v);
 const person = (v: unknown): string => (v && typeof v === "object" ? (v as UserRef).name : "niemand");
 const quote = (s: string) => `„${s}“`;
 const topics = (n: number) => (n === 1 ? "1 Thema" : `${n} Themen`);
@@ -54,6 +56,7 @@ export function describeAudit(entry: AuditEntry): { text: string; details: strin
         details.push(`Beschreibung vorher: ${shorten(str(before.description)) || "(leer)"}`);
         details.push(`Beschreibung nachher: ${shorten(str(after.description)) || "(leer)"}`);
       }
+      if ("color" in after) details.push(`Farbe: ${colorName(before.color)} → ${colorName(after.color)}`);
       return { text: `hat das Thema ${quote(str(d.title))} bearbeitet`, details };
     case "card.deleted": {
       if (str(before.description)) details.push(`Beschreibung: ${shorten(str(before.description))}`);

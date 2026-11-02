@@ -21,6 +21,13 @@ describe("describeAudit", () => {
     expect(result.details).toEqual(["Titel: „Release“ → „Release-Planung“"]);
   });
 
+  it("nennt beim Bearbeiten die Farbe mit Namen", () => {
+    const result = describeAudit(
+      entry("card.updated", { title: "Budget", before: { color: "yellow" }, after: { color: "blue" } }),
+    );
+    expect(result.details).toEqual(["Farbe: Gelb → Blau"]);
+  });
+
   it("nennt beim Löschen den letzten Inhalt", () => {
     const result = describeAudit(
       entry("card.deleted", { before: { title: "Weg", description: "Text", people: ["Ben", "Carla"] } }),

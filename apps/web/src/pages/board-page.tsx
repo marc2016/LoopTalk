@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { columns, lifecycle } from "@/lib/lifecycle";
 import { useBoardActions } from "@/lib/queries";
 import { useCardShift } from "@/lib/use-card-shift";
+import { useLandingCards } from "@/lib/use-landing-cards";
 import { useOtherDialogOpen } from "@/lib/use-other-dialog-open";
 import { cn } from "@/lib/utils";
 import { useBoardContext } from "./board-layout";
@@ -75,6 +76,8 @@ export function BoardPage() {
     endedByMe.current = false;
   });
 
+  const { landing, landed } = useLandingCards(board.cards.map((c) => c.id));
+
   const previewFor = (column: Column): EndPreview => (!previewing ? null : column === 3 ? "archive" : "advance");
 
   return (
@@ -105,7 +108,7 @@ export function BoardPage() {
                 aria-label={life.title}
                 data-testid={`column-${column}`}
                 className={cn(
-                  "flex h-full flex-col gap-3.5 rounded-xl p-3 md:min-h-72",
+                  "note-surface flex h-full flex-col gap-3.5 rounded-xl p-3 md:min-h-72",
                   last ? "bg-last-round" : "bg-column",
                 )}
               >
@@ -156,20 +159,25 @@ export function BoardPage() {
                   </div>
                 </header>
 
-                {cards.map((card) => (
-                  <TopicCard
-                    key={card.id}
-                    card={card}
-                    meetingNumber={meeting.number}
-                    preview={previewFor(column)}
-                    onOpen={() => setSheet({ mode: "view", cardId: card.id })}
-                  />
-                ))}
-                {cards.length === 0 && (
-                  <p className="rounded-lg border border-dashed border-border px-3 py-6 text-center text-sm text-muted-foreground">
-                    {column === 1 ? "Noch keine neuen Themen." : "Keine Themen in dieser Runde."}
-                  </p>
-                )}
+                {/* Zettel quadratisch, je zwei nebeneinander */}
+                <div className="grid grid-cols-2 gap-3" data-testid="note-grid">
+                  {cards.map((card) => (
+                    <TopicCard
+                      key={card.id}
+                      card={card}
+                      meetingNumber={meeting.number}
+                      preview={previewFor(column)}
+                      landing={landing.has(card.id)}
+                      onLanded={() => landed(card.id)}
+                      onOpen={() => setSheet({ mode: "view", cardId: card.id })}
+                    />
+                  ))}
+                  {cards.length === 0 && (
+                    <p className="col-span-2 rounded-lg border border-dashed border-border px-3 py-6 text-center text-sm text-muted-foreground">
+                      {column === 1 ? "Noch keine neuen Themen." : "Keine Themen in dieser Runde."}
+                    </p>
+                  )}
+                </div>
               </section>
 
               {/* Verbindung zum nächsten Schritt: auf dem Desktop im Spaltenabstand, mobil als Linie */}

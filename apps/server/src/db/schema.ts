@@ -1,6 +1,7 @@
-import type { AuditAction, AuditEntry, MeetingStatus } from "@looptalk/shared";
+import { type AuditAction, type AuditEntry, CARD_COLORS, type CardColor, type MeetingStatus } from "@looptalk/shared";
 import { sql } from "drizzle-orm";
 import {
+  type AnyPgColumn,
   bigint,
   boolean,
   check,
@@ -17,6 +18,9 @@ import {
   varchar,
 } from "drizzle-orm/pg-core";
 
+const cardColor = () => text().$type<CardColor>().notNull().default("yellow");
+const cardColorCheck = (name: string, column: AnyPgColumn) =>
+  check(name, sql`${column} IN (${sql.raw(CARD_COLORS.map((c) => `'${c}'`).join(", "))})`);
 const id = () => bigint({ mode: "number" }).primaryKey().generatedAlwaysAsIdentity();
 const ref = (name: string) => bigint(name, { mode: "number" });
 const createdAt = () => timestamp({ withTimezone: true }).notNull().defaultNow();
@@ -63,6 +67,7 @@ export const cards = pgTable(
       .references(() => boards.id),
     title: text().notNull(),
     description: text().notNull().default(""),
+    color: cardColor(),
     column: smallint().notNull().default(1),
     createdBy: ref("created_by")
       .notNull()
@@ -73,6 +78,7 @@ export const cards = pgTable(
   },
   (t) => [
     check("cards_column_check", sql`${t.column} BETWEEN 1 AND 3`),
+    cardColorCheck("cards_color_check", t.color),
     index("cards_board_open_idx")
       .on(t.boardId)
       .where(sql`${t.deletedAt} IS NULL AND ${t.archivedAt} IS NULL`),
@@ -169,11 +175,15 @@ export const meetingCards = pgTable(
       .references(() => cards.id),
     title: text().notNull(),
     description: text().notNull(),
+    color: cardColor(),
     columnAtMeeting: smallint().notNull(),
     people: jsonb().$type<string[]>().notNull(),
     discussed: boolean().notNull().default(false),
   },
-  (t) => [primaryKey({ columns: [t.meetingId, t.cardId] })],
+  (t) => [
+    primaryKey({ columns: [t.meetingId, t.cardId] }),
+    cardColorCheck("meeting_cards_color_check", t.color),
+  ],
 );
 
 export const rotationPool = pgTable(

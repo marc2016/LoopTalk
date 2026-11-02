@@ -173,16 +173,19 @@ describe("Boards und Karten", () => {
 
   it("Karten: anlegen, bearbeiten, Namen, löschen; Spalte ist nicht änderbar", async () => {
     await anna.post(`/api/boards/${slug}/cards`, { title: "" }).expect(400);
+    await anna.post(`/api/boards/${slug}/cards`, { title: "Rot", color: "red" }).expect(400);
     const { id } = (await anna.post(`/api/boards/${slug}/cards`, { title: "Release" }).expect(201)).body;
 
     await ben.patch(`/api/boards/${slug}/cards/${id}`, { column: 3 }).expect(400);
     await ben.patch(`/api/boards/${slug}/cards/${id}`, { title: "Release", column: 3 }).expect(400);
     await ben.patch(`/api/boards/${slug}/cards/${id}`, { description: "Was steht an?" }).expect(204);
+    await ben.patch(`/api/boards/${slug}/cards/${id}`, { color: "red" }).expect(400);
+    await ben.patch(`/api/boards/${slug}/cards/${id}`, { color: "pink" }).expect(204);
     await ben.post(`/api/boards/${slug}/cards/${id}/people`, { name: "Carla" }).expect(204);
 
     let view = (await anna.get(`/api/boards/${slug}`)).body as BoardView;
     const card = view.cards.find((c) => c.id === id)!;
-    expect(card).toMatchObject({ column: 1, description: "Was steht an?", people: [{ name: "Carla" }] });
+    expect(card).toMatchObject({ column: 1, description: "Was steht an?", color: "pink", people: [{ name: "Carla" }] });
 
     await anna.delete(`/api/boards/${slug}/cards/${id}/people/${card.people[0]!.id}`).expect(204);
     await anna.delete(`/api/boards/${slug}/cards/${id}`).expect(204);
@@ -193,6 +196,7 @@ describe("Boards und Karten", () => {
     const history = (await anna.get(`/api/boards/${slug}/cards/${id}/audit`).expect(200)).body;
     expect(history.map((e: { action: string }) => e.action)).toEqual([
       "card.created",
+      "card.updated",
       "card.updated",
       "card.person_added",
       "card.person_removed",

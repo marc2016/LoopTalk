@@ -42,6 +42,9 @@
     --radius-3xl: calc(var(--radius) * 2.2);
     --radius-4xl: calc(var(--radius) * 2.6);
 
+    --color-note-foreground: var(--note-foreground);
+    --color-note-muted: var(--note-muted);
+
     /* Pfeile zwischen den Spalten stupsen während der Vorschau zur nächsten Spalte */
     --animate-nudge: nudge 1.2s ease-in-out infinite;
     @keyframes nudge {
@@ -94,6 +97,21 @@
     --person-6-bg: oklch(0.92 0.05 275);  --person-6-fg: oklch(0.4 0.11 275);
     --person-7-bg: oklch(0.92 0.05 330);  --person-7-fg: oklch(0.4 0.11 330);
     --radius: 0.625rem;
+
+    /* Zettelfarben: gleiche Helligkeit, verschiedene Farbtöne; Schrift immer gleich dunkel.
+       Kontraste prüft note-colors.test.ts (alle Farben und Alter mindestens 4,5:1). */
+    --note-yellow: oklch(0.94 0.09 100);
+    --note-orange: oklch(0.91 0.07 65);
+    --note-pink: oklch(0.91 0.06 0);
+    --note-green: oklch(0.92 0.07 145);
+    --note-blue: oklch(0.91 0.05 235);
+    --note-purple: oklch(0.91 0.05 300);
+    --note-foreground: oklch(0.24 0.02 70);
+    --note-muted: oklch(0.42 0.02 70);
+    /* Altern: Anteil der Zettelfarbe, der Rest ist Weiß (3 = neu, 1 = letzte Runde). */
+    --note-age-3: 100%;
+    --note-age-2: 80%;
+    --note-age-1: 60%;
 }
 
 @layer base {
@@ -106,4 +124,124 @@
   html {
     @apply font-sans;
     }
+}
+/* ---------------------------------------------------------------------------
+   Zettel (Post-its) auf dem Board
+   --------------------------------------------------------------------------- */
+
+/* Registriert, damit Farbwechsel und Ecke weich übergehen können. */
+@property --note-bg {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: white;
+}
+@property --curl {
+  syntax: "<length>";
+  inherits: true;
+  initial-value: 10px;
+}
+
+/* Fläche, auf der Zettel kleben: feines Punktraster über der Spaltenfarbe. */
+.note-surface {
+  background-image: radial-gradient(circle, oklch(0.2 0.01 255 / 0.09) 1px, transparent 1.2px);
+  background-size: 14px 14px;
+  background-position: 7px 7px;
+}
+
+/* Papier: Farbe, Alter, Ecke und Schatten. Gilt für kleine Zettel und den großen Zettel. */
+.note-paper {
+  --note-base: var(--note-yellow);
+  --note-bg: color-mix(in oklch, var(--note-base) var(--note-age), white);
+  --note-age: var(--note-age-3);
+  /* Ecke in Ruhe; beim Anheben wird sie größer. */
+  --curl-rest: 10px;
+  --curl: var(--curl-rest);
+  color: var(--note-foreground);
+  /* Die Ecke unten rechts bleibt frei: dort liegt die umgeknickte Ecke (::after). */
+  background: linear-gradient(-45deg, transparent calc(var(--curl) * 0.7071), var(--note-bg) 0);
+  border-radius: 2px 2px 3px 3px;
+  /* Schatten folgt der Form (inkl. Ecke): oben angeklebt, unten hebt sich das Papier leicht. */
+  filter: drop-shadow(0 1px 1px oklch(0.2 0.02 70 / 0.12)) drop-shadow(0 5px 6px oklch(0.2 0.02 70 / 0.1));
+  transition:
+    --note-bg 400ms ease,
+    --curl 250ms ease-out,
+    rotate 250ms ease-out,
+    filter 250ms ease-out,
+    opacity 300ms ease-out,
+    translate 300ms ease-out;
+}
+.note-paper::after {
+  content: "";
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  width: var(--curl);
+  height: var(--curl);
+  /* Rückseite der umgeknickten Ecke: etwas dunkler als das Papier. */
+  background: linear-gradient(
+    to top left,
+    transparent 50%,
+    color-mix(in oklch, var(--note-bg), oklch(0.3 0.03 70) 16%) 50%,
+    color-mix(in oklch, var(--note-bg), oklch(0.3 0.03 70) 6%)
+  );
+  border-top-left-radius: 2px;
+  filter: drop-shadow(-1px -1px 1px oklch(0.2 0.02 70 / 0.12));
+}
+.note-paper[data-color="orange"] { --note-base: var(--note-orange); }
+.note-paper[data-color="pink"] { --note-base: var(--note-pink); }
+.note-paper[data-color="green"] { --note-base: var(--note-green); }
+.note-paper[data-color="blue"] { --note-base: var(--note-blue); }
+.note-paper[data-color="purple"] { --note-base: var(--note-purple); }
+.note-paper[data-age="2"] { --note-age: var(--note-age-2); --curl-rest: 14px; }
+.note-paper[data-age="1"] { --note-age: var(--note-age-1); --curl-rest: 18px; }
+
+/* Kleiner Zettel auf dem Board: quadratisch, leicht gedreht. Der Innenabstand unten
+   reicht für die angehobene Ecke und bleibt gleich, damit nichts springt. */
+.note {
+  position: relative;
+  padding: 0.75rem 0.875rem calc(0.375rem + var(--curl-rest));
+  rotate: var(--tilt, 0deg);
+}
+
+/* Großer Zettel: Detail-, Bearbeiten- und Fokusansicht. Größere Ecke, kein Rahmen. */
+.note-paper.note-big {
+  --curl-rest: 34px;
+  border: 0;
+  border-radius: 3px;
+  padding-bottom: calc(1.5rem + var(--curl-rest));
+  box-shadow: none;
+}
+
+/* Danach greifen: Ecke hebt sich, Zettel richtet sich etwas auf. */
+.note:hover,
+.note:focus-visible {
+  --curl: calc(var(--curl-rest) + 6px);
+  rotate: calc(var(--tilt, 0deg) * 0.3);
+  filter: drop-shadow(0 2px 2px oklch(0.2 0.02 70 / 0.12)) drop-shadow(0 10px 12px oklch(0.2 0.02 70 / 0.14));
+}
+
+/* Neuer Zettel klatscht aufs Board. */
+@keyframes note-land {
+  0% { opacity: 0; scale: 1.08; rotate: calc(var(--tilt, 0deg) * 4); translate: 0 -10px; }
+  60% { opacity: 1; scale: 0.98; }
+  100% { scale: 1; rotate: var(--tilt, 0deg); translate: 0 0; }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .note[data-landing] { animation: note-land 420ms cubic-bezier(0.2, 0.7, 0.2, 1) both; }
+}
+
+/* Haken „heute besprochen“ wird gezeichnet. */
+@keyframes check-draw {
+  from { stroke-dashoffset: 1; }
+  to { stroke-dashoffset: 0; }
+}
+.check-drawn path {
+  stroke-dasharray: 1;
+  stroke-dashoffset: 0;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .check-drawn[data-animate] path { animation: check-draw 450ms ease-out both; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .note-paper { transition: none; }
 }

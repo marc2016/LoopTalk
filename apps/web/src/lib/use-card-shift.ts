@@ -1,13 +1,15 @@
 import { type RefObject, useLayoutEffect, useRef } from "react";
 
-const DURATION_MS = 350;
+const DURATION_MS = 650;
 const EASING = "cubic-bezier(0.2, 0.7, 0.2, 1)";
 
 const prefersReducedMotion = () =>
   typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
 /**
- * Lässt Karten beim Weiterrücken in ihre neue Spalte gleiten (FLIP).
+ * Lässt Karten beim Weiterrücken in ihre neue Spalte wandern (FLIP): Der Zettel wird
+ * angehoben, gleitet hinüber und wird wieder angedrückt. Archivierte Zettel lösen sich
+ * und fallen.
  *
  * Ausgelöst wird nur, wenn die Terminnummer steigt, egal ob die neuen Daten über die
  * eigene Mutation oder über ein Live-Event kommen. Nach jedem Rendern werden die
@@ -38,7 +40,7 @@ export function useCardShift(
       const animated = !prefersReducedMotion();
       if (animated) {
         slide(elements, rects.current);
-        fadeOut(
+        fall(
           [...clones.current].filter(([id]) => !current.has(id)),
           rects.current,
         );
@@ -62,14 +64,19 @@ function slide(elements: HTMLElement[], before: Map<string, DOMRect>) {
     const dx = old.left - now.left;
     const dy = old.top - now.top;
     if ((dx === 0 && dy === 0) || Math.abs(dx) > maxJump || Math.abs(dy) > maxJump) continue;
-    el.animate([{ transform: `translate(${dx}px, ${dy}px)` }, { transform: "translate(0, 0)" }], {
-      duration: DURATION_MS,
-      easing: EASING,
-    });
+    el.animate(
+      [
+        { transform: `translate(${dx}px, ${dy}px) scale(1)` },
+        { transform: `translate(${dx}px, ${dy - 6}px) scale(1.04)`, offset: 0.15 },
+        { transform: "translate(0, -6px) scale(1.04)", offset: 0.8 },
+        { transform: "translate(0, 0) scale(1)" },
+      ],
+      { duration: DURATION_MS, easing: EASING },
+    );
   }
 }
 
-function fadeOut(gone: [string, HTMLElement][], before: Map<string, DOMRect>) {
+function fall(gone: [string, HTMLElement][], before: Map<string, DOMRect>) {
   if (gone.length === 0) return;
   const layer = document.createElement("div");
   layer.setAttribute("aria-hidden", "true");
@@ -91,10 +98,12 @@ function fadeOut(gone: [string, HTMLElement][], before: Map<string, DOMRect>) {
     layer.append(clone);
     clone.animate(
       [
-        { opacity: 1, transform: "translateX(0)" },
-        { opacity: 0, transform: "translateX(24px)" },
+        { opacity: 1, transform: "translate(0, 0) rotate(0deg)" },
+        // Erst löst sich der Zettel oben, dann kippt er und fällt.
+        { opacity: 1, transform: "translate(4px, -6px) rotate(-3deg)", offset: 0.25 },
+        { opacity: 0, transform: "translate(40px, 140px) rotate(16deg)" },
       ],
-      { duration: DURATION_MS, easing: EASING, fill: "forwards" },
+      { duration: DURATION_MS, easing: "cubic-bezier(0.5, 0, 0.75, 0)", fill: "forwards" },
     );
   }
   document.body.append(layer);

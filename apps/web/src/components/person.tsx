@@ -26,19 +26,44 @@ export function PersonAvatar({
   );
 }
 
-/** Name als Badge in der Farbe der Person; frei eingegebene Namen ohne Konto neutral. */
+/**
+ * Name als Badge in der Farbe der Person; frei eingegebene Namen ohne Konto neutral.
+ * Auf Zetteln (`onNote`) weiß mit Farbpunkt, damit der Name auf jeder Zettelfarbe lesbar bleibt.
+ */
 export function PersonBadge({
   name,
   userId,
+  onNote = false,
   className,
   children,
 }: {
   name: string;
   userId: number | null;
+  onNote?: boolean;
   className?: string;
   children?: ReactNode;
 }) {
   const color = userId === null ? null : personColor(userId);
+  if (onNote) {
+    return (
+      <Badge
+        variant="secondary"
+        className={cn("bg-white/90 text-note-foreground shadow-xs", className)}
+        data-person={userId === null ? "free" : "member"}
+      >
+        {color && (
+          <span
+            className="size-2 shrink-0 rounded-full ring-1 ring-note-foreground/25"
+            style={{ backgroundColor: color.fg }}
+            data-testid="person-dot"
+            aria-hidden
+          />
+        )}
+        {name}
+        {children}
+      </Badge>
+    );
+  }
   return (
     <Badge
       variant="secondary"

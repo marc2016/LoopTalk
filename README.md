@@ -15,6 +15,8 @@ Termin eine Spalte weiter und wird nach „Letzter Termin“ archiviert.
   lassen sich jederzeit manuell ändern. Das Protokoll selbst wird außerhalb der App
   geführt.
 - **Themen** kann jeder anlegen, bearbeiten, löschen und um weitere Namen ergänzen.
+  Sie hängen als Zettel am Board, in einer von sechs frei wählbaren Farben, und
+  altern sichtbar, je näher sie dem Archiv kommen.
 - **Live**: Änderungen und wer gerade auf dem Board ist, erscheinen sofort bei allen.
 - **Audit-Log**: Jede Änderung wird unveränderlich mit Person und Zeitpunkt
   festgehalten.

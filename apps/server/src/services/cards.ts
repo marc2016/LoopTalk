@@ -21,11 +21,22 @@ async function lockOpenCard(tx: Tx, boardId: number, cardId: number): Promise<Ca
 
 export function cardService({ db, notifier, now }: ServiceDeps) {
   return {
-    async create(board: BoardRow, userId: number, input: Required<CreateCardInput>): Promise<{ id: number }> {
+    /** Ohne Farbe gilt der Standard der Datenbank (gelb). */
+    async create(
+      board: BoardRow,
+      userId: number,
+      input: Required<Omit<CreateCardInput, "color">> & Pick<CreateCardInput, "color">,
+    ): Promise<{ id: number }> {
       const card = await db.transaction(async (tx) => {
         const [card] = await tx
           .insert(cards)
-          .values({ boardId: board.id, title: input.title, description: input.description, createdBy: userId })
+          .values({
+            boardId: board.id,
+            title: input.title,
+            description: input.description,
+            color: input.color,
+            createdBy: userId,
+          })
           .returning();
         await recordAudit(tx, {
           boardId: board.id,
@@ -33,7 +44,7 @@ export function cardService({ db, notifier, now }: ServiceDeps) {
           action: "card.created",
           targetType: "card",
           targetId: card!.id,
-          data: { after: { title: card!.title, description: card!.description } },
+          data: { after: { title: card!.title, description: card!.description, color: card!.color } },
         });
         return card!;
       });
@@ -53,6 +64,10 @@ export function cardService({ db, notifier, now }: ServiceDeps) {
         if (input.description !== undefined && input.description !== card.description) {
           before.description = card.description;
           after.description = input.description;
+        }
+        if (input.color !== undefined && input.color !== card.color) {
+          before.color = card.color;
+          after.color = input.color;
         }
         if (Object.keys(after).length === 0) return false;
         await tx.update(cards).set(after).where(eq(cards.id, card.id));
@@ -94,6 +109,7 @@ export function cardService({ db, notifier, now }: ServiceDeps) {
             before: {
               title: card.title,
               description: card.description,
+              color: card.color,
               column: card.column,
               people: people.map((p) => p.name),
             },

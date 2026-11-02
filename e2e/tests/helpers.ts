@@ -1,11 +1,12 @@
 import { type Browser, expect, type Page } from "@playwright/test";
 
-/** Laufende Web-Animationen auf Karten (Weiterrücken). */
+/** Laufende Web-Animationen auf Karten (Weiterrücken); CSS-Animationen wie das Landen zählen nicht. */
 export const cardAnimations = (page: Page) =>
   page.evaluate(
     () =>
       document
         .getAnimations()
+        .filter((a) => !(a instanceof CSSAnimation) && !(a instanceof CSSTransition))
         .filter((a) => (a.effect as KeyframeEffect | null)?.target instanceof HTMLElement)
         .filter((a) => ((a.effect as KeyframeEffect).target as HTMLElement).dataset.cardId !== undefined).length,
   );
