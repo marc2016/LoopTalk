@@ -1,5 +1,5 @@
 import { eq, sql } from "drizzle-orm";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { auditEvents, cards } from "../src/db/schema";
 import { AppError } from "../src/errors";
 import { poolOf } from "../src/services/boards";
@@ -7,10 +7,10 @@ import { createTestDb, type TestDb } from "./db";
 import { auditActions, createUser, services } from "./fixtures";
 
 let t: TestDb;
-beforeAll(async () => {
+beforeEach(async () => {
   t = await createTestDb();
 });
-afterAll(async () => {
+afterEach(async () => {
   await t.drop();
 });
 
@@ -38,18 +38,70 @@ describe("Boards", () => {
     expect(await auditActions(t.db, board.id)).toEqual(["board.created"]);
   });
 
-  it("tritt beim ersten Öffnen bei, kommt in den Topf und protokolliert genau einmal", async () => {
+  it("alle bekannten Benutzer sind sofort Teilnehmer, der Ersteller moderiert und bleibt aus dem Topf", async () => {
     const s = services(t.db);
     const anna = await createUser(t.db, "Anna");
     const ben = await createUser(t.db, "Ben");
+    const carla = await createUser(t.db, "Carla");
     const { slug } = await s.boards.create(anna, "Board");
+
+    const board = await s.boards.open(slug, ben);
+    const view = await s.boards.view(board);
+    expect(view.participants.map((p) => [p.name, p.active])).toEqual([
+      ["Anna", true],
+      ["Ben", true],
+      ["Carla", true],
+    ]);
+    expect(view.meeting.moderator.id).toBe(anna);
+    expect(await poolOf(t.db, board.id)).toEqual([ben, carla]);
+    expect(await auditActions(t.db, board.id)).toEqual(["board.created"]);
+    expect(s.notifier.events).toEqual([]);
+  });
+
+  it("beim Login allen Boards beitreten: Topf, Audit und Live-Update je Board, genau einmal", async () => {
+    const s = services(t.db);
+    const anna = await createUser(t.db, "Anna");
+    const a = await s.boards.open((await s.boards.create(anna, "A")).slug, anna);
+    const b = await s.boards.open((await s.boards.create(anna, "B")).slug, anna);
+    expect((await s.boards.view(a)).tooFewParticipants).toBe(true);
+
+    const dora = await createUser(t.db, "Dora");
+    await s.boards.joinAll(dora);
+    await s.boards.joinAll(dora);
+    for (const board of [a, b]) {
+      expect(await poolOf(t.db, board.id)).toEqual([dora]);
+      expect(await auditActions(t.db, board.id)).toEqual(["board.created", "member.joined"]);
+    }
+    expect(s.notifier.events).toEqual([
+      { boardId: a.id, reason: "member.joined" },
+      { boardId: b.id, reason: "member.joined" },
+    ]);
+    expect((await s.boards.view(a)).tooFewParticipants).toBe(false);
+  });
+
+  it("wer inaktiv ist, bleibt es auch nach erneutem Login", async () => {
+    const s = services(t.db);
+    const anna = await createUser(t.db, "Anna");
+    const ben = await createUser(t.db, "Ben");
+    const board = await s.boards.open((await s.boards.create(anna, "Board")).slug, anna);
+    await s.participants.setActive(board, anna, ben, false);
+
+    await s.boards.joinAll(ben);
+    const view = await s.boards.view(board);
+    expect(view.participants.find((p) => p.id === ben)?.active).toBe(false);
+    expect(await poolOf(t.db, board.id)).toEqual([]);
+  });
+
+  it("Öffnen holt eine fehlende Mitgliedschaft nach", async () => {
+    const s = services(t.db);
+    const anna = await createUser(t.db, "Anna");
+    const { slug } = await s.boards.create(anna, "Board");
+    const ben = await createUser(t.db, "Ben");
 
     const board = await s.boards.open(slug, ben);
     await s.boards.open(slug, ben);
     expect(await poolOf(t.db, board.id)).toEqual([ben]);
     expect(await auditActions(t.db, board.id)).toEqual(["board.created", "member.joined"]);
-    expect(s.notifier.events).toEqual([{ boardId: board.id, reason: "member.joined" }]);
-    expect((await s.boards.view(board)).tooFewParticipants).toBe(false);
   });
 
   it("unbekannter Link ergibt nicht gefunden", async () => {
@@ -58,13 +110,13 @@ describe("Boards", () => {
     await expectAppError(s.boards.open("gibt-es-nicht", anna), "not_found");
   });
 
-  it("listet nur eigene Boards", async () => {
+  it("listet alle Boards alphabetisch", async () => {
     const s = services(t.db);
     const anna = await createUser(t.db, "Anna");
     const ben = await createUser(t.db, "Ben");
-    const a = await s.boards.create(anna, "Annas Board");
-    await s.boards.create(ben, "Bens Board");
-    expect((await s.boards.listMine(anna)).map((b) => b.slug)).toEqual([a.slug]);
+    const z = await s.boards.create(anna, "Zeta");
+    const a = await s.boards.create(ben, "Alpha");
+    expect((await s.boards.listAll()).map((b) => b.slug)).toEqual([a.slug, z.slug]);
   });
 });
 
@@ -118,8 +170,9 @@ describe("Karten", () => {
   it("Namen nur mit Teilnehmer-ID des Boards", async () => {
     const s = services(t.db);
     const anna = await createUser(t.db, "Anna");
-    const fremd = await createUser(t.db, "Fremd");
     const { slug } = await s.boards.create(anna, "Board");
+    // Nach dem Board angelegt und noch nie angemeldet: kein Teilnehmer.
+    const fremd = await createUser(t.db, "Fremd");
     const board = await s.boards.open(slug, anna);
     const { id } = await s.cards.create(board, anna, { title: "A", description: "" });
     await expectAppError(s.cards.addPerson(board, anna, id, { name: "Fremd", userId: fremd }), "bad_request");
@@ -289,7 +342,7 @@ describe("Audit-Log", () => {
     expect(first.entries).toHaveLength(4);
     expect(first.nextCursor).not.toBeNull();
     const second = await s.audit.list(board.id, { limit: 3, before: first.nextCursor! });
-    expect(second.entries.map((e) => e.action)).toEqual(["card.created", "member.joined", "board.created"]);
+    expect(second.entries.map((e) => e.action)).toEqual(["card.created", "board.created"]);
     expect(second.nextCursor).toBeNull();
 
     const byBen = await s.audit.list(board.id, { limit: 50, actor: ben, action: "card.created" });

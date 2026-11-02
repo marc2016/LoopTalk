@@ -80,7 +80,8 @@ Protokoll leer sein.
 
 #### Scenario: Warnung verschwindet live
 - **GIVEN** die Warnung wird angezeigt
-- **WHEN** ein zweiter Benutzer das Board zum ersten Mal öffnet
+- **WHEN** sich ein zweiter Benutzer zum ersten Mal anmeldet oder ein inaktiver
+  Teilnehmer wieder aktiv gesetzt wird
 - **THEN** verschwindet die Warnung bei allen ohne Neuladen
 
 #### Scenario: Beenden mit einem Teilnehmer

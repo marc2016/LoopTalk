@@ -154,12 +154,21 @@ describe("Boards und Karten", () => {
     await anna.get("/api/boards/..%2F..").expect(404);
   });
 
-  it("Link teilen: Ben tritt bei und sieht das Board; es steht in seiner Liste", async () => {
+  it("Link teilen: Ben ist Teilnehmer und sieht das Board; es steht in der Liste", async () => {
     const view = (await ben.get(`/api/boards/${slug}`).expect(200)).body as BoardView;
-    expect(view.participants.map((p) => p.name)).toEqual(["Anna", "Ben"]);
+    expect(view.participants.map((p) => p.name)).toEqual(expect.arrayContaining(["Anna", "Ben"]));
     expect(view.tooFewParticipants).toBe(false);
-    const mine = (await ben.get("/api/boards").expect(200)).body as BoardSummary[];
-    expect(mine.map((b) => b.slug)).toContain(slug);
+    const all = (await ben.get("/api/boards").expect(200)).body as BoardSummary[];
+    expect(all.map((b) => b.slug)).toContain(slug);
+  });
+
+  it("erster Login: neuer Benutzer ist sofort Teilnehmer bestehender Boards", async () => {
+    const { cookie } = await login("Erik");
+    const me = (await as(cookie).get("/api/me").expect(200)).body;
+    const participants = (await anna.get(`/api/boards/${slug}/participants`).expect(200)).body;
+    expect(participants).toContainEqual(expect.objectContaining({ id: me.id, name: "Erik", active: true }));
+    const page = (await anna.get(`/api/boards/${slug}/audit?action=member.joined&actor=${me.id}`).expect(200)).body;
+    expect(page.entries).toHaveLength(1);
   });
 
   it("Karten: anlegen, bearbeiten, Namen, löschen; Spalte ist nicht änderbar", async () => {
@@ -230,16 +239,16 @@ describe("Boards und Karten", () => {
   });
 
   it("Teilnehmer aktiv/inaktiv und Audit-Log mit Filtern", async () => {
-    const participants = (await anna.get(`/api/boards/${slug}/participants`).expect(200)).body;
-    const benId = participants.find((p: { name: string }) => p.name === "Ben").id;
-    await anna.patch(`/api/boards/${slug}/participants/${benId}`, { active: false }).expect(204);
+    const participants: { id: number; name: string }[] = (await anna.get(`/api/boards/${slug}/participants`).expect(200)).body;
+    const others = participants.filter((p) => p.name !== "Anna");
+    for (const p of others) await anna.patch(`/api/boards/${slug}/participants/${p.id}`, { active: false }).expect(204);
     const view = (await anna.get(`/api/boards/${slug}`)).body as BoardView;
     expect(view.tooFewParticipants).toBe(true);
-    await anna.patch(`/api/boards/${slug}/participants/${benId}`, { active: true }).expect(204);
+    for (const p of others) await anna.patch(`/api/boards/${slug}/participants/${p.id}`, { active: true }).expect(204);
 
     const page = (await anna.get(`/api/boards/${slug}/audit?action=member.deactivated`).expect(200)).body;
-    expect(page.entries).toHaveLength(1);
-    expect(page.entries[0]).toMatchObject({ actor: { name: "Anna" }, data: { user: { name: "Ben" } } });
+    expect(page.entries).toHaveLength(others.length);
+    expect(page.entries).toContainEqual(expect.objectContaining({ actor: expect.objectContaining({ name: "Anna" }), data: { user: expect.objectContaining({ name: "Ben" }) } }));
     await anna.get(`/api/boards/${slug}/audit?action=gibt.es.nicht`).expect(400);
   });
 

@@ -69,7 +69,15 @@ export function createApp(deps: AppDeps): express.Express {
       secure: deps.baseUrl.startsWith("https://"),
     }),
   );
-  app.use("/auth", authRoutes({ oidc: deps.oidc, db: deps.db, baseUrl: deps.baseUrl }));
+  app.use(
+    "/auth",
+    authRoutes({
+      oidc: deps.oidc,
+      db: deps.db,
+      baseUrl: deps.baseUrl,
+      onLogin: (userId) => deps.services.boards.joinAll(userId),
+    }),
+  );
 
   app.use(requireLogin);
   app.use("/api", express.json({ limit: "100kb" }), apiRoutes(deps));

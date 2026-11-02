@@ -55,3 +55,18 @@ export async function closeSheet(page: Page) {
   await sheet.getByRole("button", { name: "Close" }).click();
   await expect(sheet).toBeHidden();
 }
+
+/**
+ * Alle Benutzer sind Teilnehmer jedes Boards. Für vorhersagbare Ziehungen nur die
+ * genannten Personen aktiv lassen, alle anderen Testbenutzer inaktiv setzen.
+ */
+export async function onlyActive(page: Page, boardPath: string, names: string[]) {
+  const api = `/api/boards/${boardPath.split("/").pop()}/participants`;
+  const participants: { id: number; name: string; active: boolean }[] = await (await page.request.get(api)).json();
+  for (const p of participants) {
+    const active = names.includes(p.name);
+    if (p.active === active) continue;
+    const res = await page.request.patch(`${api}/${p.id}`, { data: { active } });
+    expect(res.status()).toBe(204);
+  }
+}

@@ -4,9 +4,10 @@ Online-Tool für regelmäßige Austauschtermine. Themen stehen auf Karten und la
 durch drei Spalten: Ein neues Thema startet in „Neu“, rückt mit jedem beendeten
 Termin eine Spalte weiter und wird nach „Letzter Termin“ archiviert.
 
-- **Mehrere Boards**: Jedes Board hat einen nicht erratbaren Link. Wer ihn öffnet
-  und sich anmeldet, macht mit. Es gibt keine Rollenrechte; jeder Teilnehmer darf
-  alles auf seinem Board.
+- **Mehrere Boards**: Die Startseite listet alle Boards, jedes Board hat außerdem
+  einen nicht erratbaren Link. Jeder, der sich einmal angemeldet hat, ist Teilnehmer
+  jedes Boards und kommt in dessen Rotation; auf der Teilnehmerseite lässt sich
+  jemand pro Board inaktiv setzen. Es gibt keine Rollenrechte; jeder darf alles.
 - **Termine** werden per Button gestartet und beendet. Erst beim Beenden wird die
   neue Moderation gezogen, alle Themen rücken weiter.
 - **Rollen**: Protokoll führt, wer zuletzt moderiert hat. Die Moderation wird fair

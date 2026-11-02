@@ -13,8 +13,8 @@ export function HomePage() {
     <div className="grid gap-6">
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Meine Boards</h1>
-          <p className="text-muted-foreground">Boards, die du erstellt oder über einen Link geöffnet hast.</p>
+          <h1 className="text-2xl font-semibold tracking-tight">Boards</h1>
+          <p className="text-muted-foreground">Alle Boards des Teams. Jeder kann jedes Board nutzen.</p>
         </div>
         <CreateBoardDialog />
       </div>

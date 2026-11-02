@@ -1,14 +1,14 @@
 import type { BoardView } from "@looptalk/shared";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { AppError } from "../src/errors";
 import { createTestDb, type TestDb } from "./db";
 import { auditActions, createUser, services } from "./fixtures";
 
 let t: TestDb;
-beforeAll(async () => {
+beforeEach(async () => {
   t = await createTestDb();
 });
-afterAll(async () => {
+afterEach(async () => {
   await t.drop();
 });
 

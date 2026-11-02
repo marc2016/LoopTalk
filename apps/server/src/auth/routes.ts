@@ -28,7 +28,13 @@ main{background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:2rem 2.
 h1{font-size:1.25rem;margin:0 0 .75rem}a{display:inline-block;margin-top:1rem;background:#2f5fc4;color:#fff;padding:.5rem 1rem;border-radius:8px;text-decoration:none}</style>
 </head><body><main><h1>${title}</h1>${body}</main></body></html>`;
 
-export function authRoutes(opts: { oidc: OidcClient; db: Executor; baseUrl: string }): Router {
+export function authRoutes(opts: {
+  oidc: OidcClient;
+  db: Executor;
+  baseUrl: string;
+  /** Nach jedem erfolgreichen Login, z. B. um allen Boards beizutreten. */
+  onLogin?: (userId: number) => Promise<void>;
+}): Router {
   const router = Router();
   const redirectUri = new URL("/auth/callback", opts.baseUrl).toString();
 
@@ -55,6 +61,11 @@ export function authRoutes(opts: { oidc: OidcClient; db: Executor; baseUrl: stri
         .values({ oidcSub: claims.sub, name: claims.name, email: claims.email })
         .onConflictDoUpdate({ target: users.oidcSub, set: { name: claims.name, email: claims.email } })
         .returning({ id: users.id, name: users.name });
+
+      // Ein Fehler hier darf den Login nicht verhindern; beim nächsten Login oder Öffnen wird nachgeholt.
+      await opts.onLogin?.(user!.id).catch((err: unknown) => {
+        console.warn("Beitritt zu Boards fehlgeschlagen:", err instanceof Error ? err.message : err);
+      });
 
       // Neue Session-ID nach dem Login gegen Session Fixation.
       await regenerate(req);

@@ -5,7 +5,7 @@ import {
   MIN_ACTIVE_PARTICIPANTS,
   type Participant,
 } from "@looptalk/shared";
-import { and, asc, eq, inArray, isNull } from "drizzle-orm";
+import { and, asc, eq, inArray, isNull, notExists, sql } from "drizzle-orm";
 import { recordAudit } from "../audit/record";
 import type { Executor } from "../db/client";
 import { boardMembers, boards, cardPeople, cards, meetingDiscussed, meetings, rotationPool, users } from "../db/schema";
@@ -25,11 +25,44 @@ import {
 } from "./common";
 
 export function boardService({ db, notifier }: ServiceDeps) {
+  /** Tritt einem Board als aktiver Teilnehmer bei und kommt in den Rotationstopf. */
+  async function join(board: BoardRow, userId: number): Promise<void> {
+    const [existing] = await db
+      .select({ userId: boardMembers.userId })
+      .from(boardMembers)
+      .where(and(eq(boardMembers.boardId, board.id), eq(boardMembers.userId, userId)));
+    if (existing) return;
+
+    const joined = await db.transaction(async (tx) => {
+      const meeting = await lockCurrentMeeting(tx, board.id);
+      const inserted = await tx.insert(boardMembers).values({ boardId: board.id, userId }).onConflictDoNothing().returning();
+      if (inserted.length === 0) return false;
+      const pool = await loadPool(tx, board.id);
+      await replacePool(tx, board.id, addToPool(pool, userId, meeting.moderatorId));
+      await recordAudit(tx, {
+        boardId: board.id,
+        actorId: userId,
+        action: "member.joined",
+        targetType: "member",
+        targetId: userId,
+      });
+      return true;
+    });
+    if (joined) notifier.boardChanged(board.id, "member.joined");
+  }
+
   return {
     async create(userId: number, name: string): Promise<BoardSummary> {
       const board = await db.transaction(async (tx) => {
         const [board] = await tx.insert(boards).values({ slug: createBoardSlug(), name, createdBy: userId }).returning();
-        await tx.insert(boardMembers).values({ boardId: board!.id, userId });
+        // Alle bekannten Benutzer sind Teilnehmer; der Ersteller moderiert und bleibt aus dem Topf.
+        const everyone = (await tx.select({ id: users.id }).from(users)).map((u) => u.id);
+        await tx.insert(boardMembers).values(everyone.map((id) => ({ boardId: board!.id, userId: id })));
+        await replacePool(
+          tx,
+          board!.id,
+          everyone.filter((id) => id !== userId),
+        );
         await tx.insert(meetings).values({ boardId: board!.id, ...firstMeeting(userId) });
         await recordAudit(tx, {
           boardId: board!.id,
@@ -44,45 +77,39 @@ export function boardService({ db, notifier }: ServiceDeps) {
       return summary(board);
     },
 
-    async listMine(userId: number): Promise<BoardSummary[]> {
-      const rows = await db
-        .select({ board: boards })
-        .from(boardMembers)
-        .innerJoin(boards, eq(boards.id, boardMembers.boardId))
-        .where(eq(boardMembers.userId, userId))
-        .orderBy(asc(boards.name), asc(boards.id));
-      return rows.map((r) => summary(r.board));
+    async listAll(): Promise<BoardSummary[]> {
+      const rows = await db.select().from(boards).orderBy(asc(boards.name), asc(boards.id));
+      return rows.map(summary);
     },
 
     /**
-     * Löst ein Board über seinen Link auf. Wer es zum ersten Mal öffnet, wird
-     * aktiver Teilnehmer und kommt in den Rotationstopf.
+     * Löst ein Board über seinen Link auf. Fehlt die Mitgliedschaft noch (etwa nach
+     * einem Rennen zwischen erstem Login und Board-Erstellung), wird sie nachgeholt.
      */
     async open(slug: string, userId: number): Promise<BoardRow> {
       const board = await findBoard(db, slug);
-      const [existing] = await db
-        .select({ userId: boardMembers.userId })
-        .from(boardMembers)
-        .where(and(eq(boardMembers.boardId, board.id), eq(boardMembers.userId, userId)));
-      if (existing) return board;
-
-      const joined = await db.transaction(async (tx) => {
-        const meeting = await lockCurrentMeeting(tx, board.id);
-        const inserted = await tx.insert(boardMembers).values({ boardId: board.id, userId }).onConflictDoNothing().returning();
-        if (inserted.length === 0) return false;
-        const pool = await loadPool(tx, board.id);
-        await replacePool(tx, board.id, addToPool(pool, userId, meeting.moderatorId));
-        await recordAudit(tx, {
-          boardId: board.id,
-          actorId: userId,
-          action: "member.joined",
-          targetType: "member",
-          targetId: userId,
-        });
-        return true;
-      });
-      if (joined) notifier.boardChanged(board.id, "member.joined");
+      await join(board, userId);
       return board;
+    },
+
+    /**
+     * Macht den Benutzer zum Teilnehmer aller Boards, auf denen er noch fehlt. Läuft
+     * bei jedem Login; bestehende Mitgliedschaften, auch inaktive, bleiben unberührt.
+     */
+    async joinAll(userId: number): Promise<void> {
+      const missing = await db
+        .select()
+        .from(boards)
+        .where(
+          notExists(
+            db
+              .select({ one: sql`1` })
+              .from(boardMembers)
+              .where(and(eq(boardMembers.boardId, boards.id), eq(boardMembers.userId, userId))),
+          ),
+        )
+        .orderBy(asc(boards.id));
+      for (const board of missing) await join(board, userId);
     },
 
     async rename(board: BoardRow, userId: number, name: string): Promise<BoardSummary> {

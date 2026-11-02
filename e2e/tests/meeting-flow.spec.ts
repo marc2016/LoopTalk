@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { addCard, cardAnimations, closeSheet, createBoard, login, startAndEnd } from "./helpers";
+import { addCard, cardAnimations, closeSheet, createBoard, login, onlyActive, startAndEnd } from "./helpers";
 
 test("zwei Personen arbeiten live auf einem Board und schließen einen Termin ab", async ({ browser }) => {
   const boardName = `E2E-Board ${Date.now()}`;
@@ -7,14 +7,19 @@ test("zwei Personen arbeiten live auf einem Board und schließen einen Termin ab
   // Anna erstellt ein Board
   const anna = await login(browser, "anna@example.com");
   const boardPath = await createBoard(anna, boardName);
-  await expect(anna.getByText("Für die Rotation werden mindestens zwei aktive Teilnehmer benötigt")).toBeVisible();
 
   // Ben öffnet den Link, landet nach dem Login auf dem Board und erscheint bei Anna als anwesend
   const ben = await login(browser, "ben@example.com", boardPath);
   await expect(ben).toHaveURL(new RegExp(`${boardPath}$`));
   await expect(ben.getByRole("heading", { name: boardName })).toBeVisible();
   await expect(anna.getByLabel("Gerade auf dem Board").getByLabel("Ben")).toBeVisible();
-  await expect(anna.getByText("Für die Rotation werden mindestens zwei aktive Teilnehmer benötigt")).toBeHidden();
+
+  // Alle Benutzer sind Teilnehmer; nur Anna aktiv ergibt live die Warnung, mit Ben verschwindet sie
+  const warning = "Für die Rotation werden mindestens zwei aktive Teilnehmer benötigt";
+  await onlyActive(anna, boardPath, ["Anna"]);
+  await expect(ben.getByText(warning)).toBeVisible();
+  await onlyActive(anna, boardPath, ["Anna", "Ben"]);
+  await expect(ben.getByText(warning)).toBeHidden();
 
   // Anna legt ein Thema an, Ben sieht es live
   await anna.getByRole("button", { name: "Thema" }).click();

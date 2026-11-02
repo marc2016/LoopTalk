@@ -1,17 +1,17 @@
 import type { BoardView, Participant, UserRef } from "@looptalk/shared";
-import { PlayIcon, SquareIcon, TriangleAlertIcon } from "lucide-react";
+import { ChevronsUpDownIcon, PlayIcon, SquareIcon, TriangleAlertIcon } from "lucide-react";
+import { useState } from "react";
 import { toast } from "sonner";
 import { PersonAvatar } from "@/components/person";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { formatDuration } from "@/lib/format";
 import { useBoardActions } from "@/lib/queries";
 import { useNow } from "@/lib/use-now";
 import { cn } from "@/lib/utils";
-
-const NONE = "none";
 
 export interface EndControls {
   /** Bestätigung zum Beenden ist offen. */
@@ -27,7 +27,6 @@ export interface EndControls {
 function RoleSelect({
   label,
   value,
-  person,
   options,
   blockedId,
   blockedLabel,
@@ -36,40 +35,104 @@ function RoleSelect({
 }: {
   label: string;
   value: UserRef | null;
-  person: UserRef | null;
   options: Participant[];
   blockedId: number | null;
   blockedLabel: string;
   allowNone?: boolean;
   onChange: (id: number | null) => void;
 }) {
+  const [open, setOpen] = useState(false);
   const inactive = value && !options.some((p) => p.id === value.id);
+
+  const choose = (id: number | null) => {
+    setOpen(false);
+    if (id !== (value?.id ?? null)) onChange(id);
+  };
+
   return (
     <div className="flex items-center gap-2 text-sm">
       <span className="text-muted-foreground">{label}</span>
-      <Select value={value ? String(value.id) : NONE} onValueChange={(v) => onChange(v === NONE ? null : Number(v))}>
-        <SelectTrigger size="sm" className="min-w-36 gap-2 bg-card font-medium" aria-label={label}>
-          <span className="flex min-w-0 items-center gap-2">
-            {person && <PersonAvatar name={person.name} userId={person.id} size="sm" className="-ml-1 size-5" aria-hidden />}
-            <SelectValue />
-          </span>
-        </SelectTrigger>
-        <SelectContent>
-          {allowNone && <SelectItem value={NONE}>nicht festgelegt</SelectItem>}
-          {inactive && (
-            <SelectItem value={String(value.id)} disabled>
-              {value.name} (inaktiv)
-            </SelectItem>
-          )}
-          {options.map((p) => (
-            <SelectItem key={p.id} value={String(p.id)} disabled={p.id === blockedId}>
-              {p.name}
-              {p.id === blockedId && ` (${blockedLabel})`}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
+      <Popover open={open} onOpenChange={setOpen}>
+        <PopoverTrigger asChild>
+          <Button
+            type="button"
+            variant="outline"
+            role="combobox"
+            aria-expanded={open}
+            aria-label={label}
+            className="w-48 justify-between gap-2 bg-card font-medium"
+          >
+            <span className="flex min-w-0 items-center gap-2">
+              {value ? (
+                <>
+                  <PersonAvatar name={value.name} userId={value.id} size="sm" className="-ml-1 size-6" aria-hidden />
+                  <span className="truncate">{value.name}</span>
+                </>
+              ) : (
+                <span className="truncate text-muted-foreground">nicht festgelegt</span>
+              )}
+            </span>
+            <ChevronsUpDownIcon aria-hidden className="opacity-50" />
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent className="w-(--radix-popover-trigger-width) min-w-72 p-0" align="start">
+          <Command>
+            <CommandInput placeholder="Person suchen …" />
+            <CommandList className="max-h-80">
+              <CommandEmpty>Niemand gefunden</CommandEmpty>
+              {allowNone && (
+                <CommandGroup>
+                  <CommandItem value="nicht festgelegt" data-checked={!value} className="h-10" onSelect={() => choose(null)}>
+                    <span className="text-muted-foreground">nicht festgelegt</span>
+                  </CommandItem>
+                </CommandGroup>
+              )}
+              <CommandGroup heading={allowNone ? "Personen" : undefined}>
+                {inactive && <RoleOption person={value} hint="inaktiv" checked disabled />}
+                {options.map((p) => (
+                  <RoleOption
+                    key={p.id}
+                    person={p}
+                    hint={p.id === blockedId ? blockedLabel : undefined}
+                    checked={p.id === value?.id}
+                    disabled={p.id === blockedId}
+                    onSelect={() => choose(p.id)}
+                  />
+                ))}
+              </CommandGroup>
+            </CommandList>
+          </Command>
+        </PopoverContent>
+      </Popover>
     </div>
+  );
+}
+
+function RoleOption({
+  person,
+  hint,
+  checked,
+  disabled,
+  onSelect,
+}: {
+  person: UserRef;
+  hint?: string;
+  checked: boolean;
+  disabled?: boolean;
+  onSelect?: () => void;
+}) {
+  return (
+    <CommandItem
+      value={`${person.name} ${person.id}`}
+      data-checked={checked}
+      disabled={disabled}
+      className="h-10 gap-2.5"
+      onSelect={onSelect}
+    >
+      <PersonAvatar name={person.name} userId={person.id} size="sm" className="size-6" aria-hidden />
+      <span className="truncate">{person.name}</span>
+      {hint && <span className="ml-auto text-xs text-muted-foreground">{hint}</span>}
+    </CommandItem>
   );
 }
 
@@ -119,7 +182,6 @@ export function MeetingBar({ slug, board, end }: { slug: string; board: BoardVie
           <RoleSelect
             label="Moderation"
             value={meeting.moderator}
-            person={meeting.moderator}
             options={active}
             blockedId={meeting.protocol?.id ?? null}
             blockedLabel="Protokoll"
@@ -128,7 +190,6 @@ export function MeetingBar({ slug, board, end }: { slug: string; board: BoardVie
           <RoleSelect
             label="Protokoll"
             value={meeting.protocol}
-            person={meeting.protocol}
             options={active}
             blockedId={meeting.moderator.id}
             blockedLabel="Moderation"

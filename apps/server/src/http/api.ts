@@ -49,7 +49,7 @@ export function apiRoutes({ db, services, hub }: { db: Db; services: Services; h
   });
 
   api.get("/boards", async (req, res) => {
-    res.json(await services.boards.listMine(currentUser(req).id));
+    res.json(await services.boards.listAll());
   });
 
   api.post("/boards", async (req, res) => {
