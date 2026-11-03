@@ -118,7 +118,7 @@ test("quadratische Zettel, zwei pro Reihe; neuer Zettel färbt sich beim Ausprob
   const sheet = anna.locator("[data-card-sheet]");
   await anna.getByRole("button", { name: "Thema" }).click();
   await expect(sheet).toHaveAttribute("data-color", "yellow");
-  await sheet.getByRole("radio", { name: "Blau" }).check({ force: true });
+  await sheet.getByTestId("color-picker").getByTitle("Blau").click();
   await expect(sheet).toHaveAttribute("data-color", "blue");
   await sheet.getByRole("button", { name: "Abbrechen" }).click();
   await expect(sheet).toBeHidden();

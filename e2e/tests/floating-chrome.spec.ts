@@ -4,6 +4,7 @@ import { addCard, createBoard, login } from "./helpers";
 const bar = (page: Page) => page.getByTestId("glass-bar");
 const dock = (page: Page) => page.getByTestId("meeting-dock");
 const wall = (page: Page) => page.getByTestId("board-wall");
+const scrollY = (page: Page) => page.evaluate(() => window.scrollY);
 
 test("Glasleiste und randlose Wand: ein Kopf, Wand bis zum Rand, Leiste bleibt oben, Zettel frei vom Dock", async ({
   browser,
@@ -36,8 +37,9 @@ test("Glasleiste und randlose Wand: ein Kopf, Wand bis zum Rand, Leiste bleibt o
 
   // Zwölf Zettel: Leiste bleibt nach dem Scrollen oben, der letzte Zettel liegt oberhalb des Docks
   for (let i = 1; i <= 12; i++) await addCard(anna, `Eintrag ${i}`);
+  // Wheel-Events laufen asynchron: auf den Scroll-Zustand warten, nicht auf eine feste Zeit.
   await anna.mouse.wheel(0, 10_000);
-  await anna.waitForTimeout(300);
+  await expect.poll(() => scrollY(anna)).toBeGreaterThan(0);
   const barAfter = (await bar(anna).boundingBox())!;
   expect(barAfter.y).toBe(0);
   const lastCard = anna.getByTestId("topic-card").filter({ hasText: "Eintrag 12" });
@@ -48,6 +50,7 @@ test("Glasleiste und randlose Wand: ein Kopf, Wand bis zum Rand, Leiste bleibt o
 
   // Per Tab fokussierter Zettel wird vollständig sichtbar gescrollt
   await anna.mouse.wheel(0, -10_000);
+  await expect.poll(() => scrollY(anna)).toBe(0);
   await lastCard.focus();
   const focused = (await lastCard.boundingBox())!;
   expect(focused.y).toBeGreaterThanOrEqual(barBox.height);
