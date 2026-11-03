@@ -135,7 +135,7 @@ test("Gemeinsamer Fokus: zeigen, lokal schließen, wechseln, nicht unterbrechen,
   await descriptionBox(ben).fill("Kosten für Q1");
   await ben.keyboard.press("Tab");
   await expect(focusSheet(anna).getByTestId("card-description")).toContainText("Kosten für Q1");
-  await focusSheet(ben).getByRole("radio", { name: "Grün" }).check({ force: true });
+  await focusSheet(ben).getByTitle("Grün").click();
   await expect(focusSheet(anna)).toHaveAttribute("data-color", "green");
   await expect(focusSheet(ben)).toHaveAttribute("data-color", "green");
 

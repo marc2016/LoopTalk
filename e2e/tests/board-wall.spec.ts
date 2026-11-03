@@ -1,5 +1,5 @@
 import { expect, type Page, test } from "@playwright/test";
-import { addCard, createBoard, login, onlyActive, startAndEnd } from "./helpers";
+import { addCard, cardAnimations, createBoard, login, onlyActive, startAndEnd } from "./helpers";
 
 const wall = (page: Page) => page.getByTestId("board-wall");
 
@@ -19,7 +19,7 @@ test("Wand: eine Fläche mit Etiketten, Geister-Zettel und Ablage; Zettel fällt
   expect(styles.map((s) => s[1] !== "0px")).toEqual([false, true, true]);
 
   // Etiketten mit Badge, Geister-Zettel in jeder leeren Spalte, Ablage nur hinter der letzten Runde
-  await expect(anna.getByTestId("column-count")).toHaveText(["0", "0", "0"]);
+  await expect(anna.getByTestId("column-count")).toHaveText(["Themen: 0", "Themen: 0", "Themen: 0"]);
   await expect(anna.getByTestId("column-1").getByTestId("note-ghost")).toHaveText("Noch keine neuen Themen.");
   await expect(anna.getByTestId("column-2").getByTestId("note-ghost")).toHaveText("Keine Themen in dieser Runde.");
   await expect(anna.getByTestId("archive-tray")).toHaveCount(1);
@@ -30,7 +30,7 @@ test("Wand: eine Fläche mit Etiketten, Geister-Zettel und Ablage; Zettel fällt
   // Erstes Thema: Geister-Zettel verschwindet, Badge zählt bei Ben live hoch
   await addCard(anna, "Budget");
   await expect(anna.getByTestId("column-1").getByTestId("note-ghost")).toHaveCount(0);
-  await expect(ben.getByTestId("column-1").getByTestId("column-count")).toHaveText("1");
+  await expect(ben.getByTestId("column-1").getByTestId("column-count")).toHaveText("Themen: 1");
 
   // Zettel in die letzte Runde bringen
   await onlyActive(anna, path, ["Anna", "Ben"]);
@@ -38,6 +38,8 @@ test("Wand: eine Fläche mit Etiketten, Geister-Zettel und Ablage; Zettel fällt
   await startAndEnd(anna);
   const card = anna.getByTestId("column-3").getByTestId("topic-card");
   await expect(card).toHaveCount(1);
+  // Erst messen, wenn das Weiterrücken ausanimiert ist (sonst steht der Zettel noch verschoben).
+  await expect.poll(() => cardAnimations(anna)).toBe(0);
   const cardBox = (await card.boundingBox())!;
   const trayBox = (await anna.getByTestId("archive-tray").boundingBox())!;
 
@@ -87,7 +89,7 @@ test("Wand umschalten: live bei allen, im Audit-Log, gleiche Wand ohne Eintrag, 
   // Ben stellt auf Kork: Anna sieht es ohne Neuladen
   let dialog = await openDialog();
   await expect(dialog.getByRole("radio", { name: "Papier" })).toBeChecked();
-  await dialog.getByRole("radio", { name: "Kork" }).check({ force: true });
+  await dialog.getByTitle("Kork").click();
   await dialog.getByRole("button", { name: "Speichern" }).click();
   await expect(dialog).toBeHidden();
   await expect(wall(ben)).toHaveAttribute("data-wall", "cork");
@@ -102,7 +104,7 @@ test("Wand umschalten: live bei allen, im Audit-Log, gleiche Wand ohne Eintrag, 
   // Name und Wand zugleich
   dialog = await openDialog();
   await dialog.getByLabel("Name").fill("Wandboard");
-  await dialog.getByRole("radio", { name: "Whiteboard" }).check({ force: true });
+  await dialog.getByTitle("Whiteboard").click();
   await dialog.getByRole("button", { name: "Speichern" }).click();
   await expect(anna.getByRole("heading", { name: "Wandboard" })).toBeVisible();
   await expect(wall(anna)).toHaveAttribute("data-wall", "whiteboard");

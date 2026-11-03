@@ -82,7 +82,7 @@ function WallPicker({ value, onChange }: { value: BoardWall; onChange: (wall: Bo
       <legend className="mb-2 text-sm font-medium">Wand</legend>
       <div className="grid grid-cols-3 gap-2" data-testid="wall-picker">
         {walls.map((wall) => (
-          <label key={wall} className="relative cursor-pointer">
+          <label key={wall} className="relative cursor-pointer" title={wallNames[wall]}>
             <input
               type="radio"
               name="board-wall"

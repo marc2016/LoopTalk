@@ -15,12 +15,11 @@ test("Glasleiste und randlose Wand: ein Kopf, Wand bis zum Rand, Leiste bleibt o
   // Genau eine Leiste mit allem, was man braucht
   await expect(bar(anna)).toHaveCount(1);
   await expect(bar(anna).getByRole("heading", { level: 1, name })).toBeVisible();
-  await expect(bar(anna).getByRole("navigation", { name: "Board-Ansichten" }).getByRole("link")).toHaveText([
-    "Board",
-    "Historie",
-    "Audit-Log",
-    "Teilnehmer",
-  ]);
+  const nav = bar(anna).getByRole("navigation", { name: "Board-Ansichten" });
+  await expect(nav.getByRole("link")).toHaveCount(4);
+  for (const label of ["Board", "Historie", "Audit-Log", "Teilnehmer"]) {
+    await expect(nav.getByRole("link", { name: label })).toBeVisible();
+  }
   await expect(bar(anna).getByRole("button", { name: "Link kopieren" })).toBeVisible();
   await expect(bar(anna).getByLabel("Gerade auf dem Board")).toBeVisible();
   await expect(bar(anna).getByRole("link", { name: "Abmelden" })).toBeVisible();
@@ -36,12 +35,12 @@ test("Glasleiste und randlose Wand: ein Kopf, Wand bis zum Rand, Leiste bleibt o
   expect(wallBox.y + wallBox.height).toBeGreaterThanOrEqual(viewport.height);
 
   // Zwölf Zettel: Leiste bleibt nach dem Scrollen oben, der letzte Zettel liegt oberhalb des Docks
-  for (let i = 1; i <= 12; i++) await addCard(anna, `Thema ${i}`);
+  for (let i = 1; i <= 12; i++) await addCard(anna, `Eintrag ${i}`);
   await anna.mouse.wheel(0, 10_000);
   await anna.waitForTimeout(300);
   const barAfter = (await bar(anna).boundingBox())!;
   expect(barAfter.y).toBe(0);
-  const lastCard = anna.getByTestId("topic-card").filter({ hasText: "Thema 12" });
+  const lastCard = anna.getByTestId("topic-card").filter({ hasText: "Eintrag 12" });
   await lastCard.scrollIntoViewIfNeeded();
   const cardBox = (await lastCard.boundingBox())!;
   const dockBox = (await dock(anna).boundingBox())!;

@@ -94,8 +94,10 @@ export function BoardPage() {
       {/* Eine Wand für alle drei Spalten: Etiketten, Trennlinien, Schein und Ablage statt Kästen */}
       <div
         ref={boardRef}
-        // Randlos: Die Wand ist die Seite; unten so viel Innenabstand, wie das Dock hoch ist.
-        className="wall grid min-h-[calc(100dvh-var(--bar-h))] px-4 pt-5 pb-[calc(var(--dock-h)+2rem)] md:grid-cols-3 md:px-6"
+        // Randlos: Die Wand ist die Seite; unten so viel Innenabstand, wie das Dock hoch ist. Die
+        // Mindesthöhe gilt für den Inhalt (box-content), damit ein wachsendes Dock nur die Seite
+        // verlängert und nichts auf dem Board springt.
+        className="wall box-content grid min-h-[calc(100dvh-var(--bar-h)-11.25rem)] px-4 pt-5 pb-[calc(var(--dock-h)+2rem)] md:grid-cols-3 md:px-6"
         data-testid="board-wall"
         data-wall={board.wall}
         data-previewing={previewing || undefined}

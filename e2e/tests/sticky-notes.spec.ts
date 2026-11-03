@@ -29,13 +29,13 @@ test("Zettelfarbe: gelb zu Beginn, direkt gewählt, live bei allen, im Audit-Log
   await expect(ben.getByRole("button", { name: "Bearbeiten", exact: true })).toHaveCount(0);
   const picker = ben.getByTestId("color-picker");
   await expect(picker.getByRole("radio", { name: "Gelb" })).toBeChecked();
-  await picker.getByRole("radio", { name: "Blau" }).check({ force: true });
+  await picker.getByTitle("Blau").click();
   await expect(ben.locator("[data-card-sheet]")).toHaveAttribute("data-color", "blue");
   const annaNote = anna.getByTestId("topic-card").filter({ hasText: "Budget" });
   await expect(annaNote).toHaveAttribute("data-color", "blue");
 
   // Dieselbe Farbe noch einmal anklicken speichert nichts
-  await picker.getByRole("radio", { name: "Blau" }).click({ force: true });
+  await picker.getByTitle("Blau").click();
   await ben.locator("[data-card-sheet]").getByRole("button", { name: "Close" }).click();
   await expect(annaNote.locator('[data-person="member"] [data-testid="person-dot"]')).toBeVisible();
   await expect(annaNote.locator('[data-person="free"] [data-testid="person-dot"]')).toHaveCount(0);
