@@ -9,12 +9,14 @@ Themenkarten in drei Spalten anlegen, bearbeiten, löschen und um Namen ergänze
 ### Requirement: Drei Spalten
 Jedes Board SHALL genau drei Spalten haben, die den Lebenszyklus eines Themas abbilden
 (Spalte 1 = neu, Spalte 2 = zweiter Termin, Spalte 3 = letzter Termin). Die Spalten
-SHALL als zusammenhängender Zeitstrahl dargestellt werden: nummerierte Schritte
-„Neu“, „Zweite Runde“ und „Letzte Runde“, verbunden in Leserichtung und endend im
-Archiv. Jeder Spaltenkopf MUST anhand der Nummer des aktuellen Termins N angeben,
-bis zu welchem Termin die Themen dieser Spalte auf dem Board bleiben: Spalte 1 bis
-Termin N+2, Spalte 2 bis Termin N+1, Spalte 3 nur noch Termin N. Die Spalte
-„Letzte Runde“ MUST sich optisch von den anderen beiden abheben.
+SHALL als zusammenhängender Zeitstrahl auf einer gemeinsamen Wand dargestellt
+werden: nummerierte Etiketten „Neu“, „Zweite Runde“ und „Letzte Runde“ in
+Leserichtung, nur durch feine Trennlinien getrennt und endend in einer sichtbaren
+Archiv-Ablage hinter der letzten Runde. Jeder Spaltenkopf MUST anhand der Nummer
+des aktuellen Termins N angeben, bis zu welchem Termin die Themen dieser Spalte auf
+dem Board bleiben: Spalte 1 bis Termin N+2, Spalte 2 bis Termin N+1, Spalte 3 nur
+noch Termin N. Die Spalte „Letzte Runde“ MUST sich optisch von den anderen beiden
+abheben.
 
 #### Scenario: Board anzeigen
 - **WHEN** ein angemeldeter Teilnehmer das Board öffnet
@@ -31,6 +33,11 @@ Termin N+2, Spalte 2 bis Termin N+1, Spalte 3 nur noch Termin N. Die Spalte
 - **WHEN** der Termin beendet wird
 - **THEN** zeigen die Spaltenköpfe bei allen Teilnehmern „bis Termin 8“, „bis
   Termin 7“ und „nur noch Termin 6“
+
+#### Scenario: Ende im Archiv
+- **WHEN** ein Teilnehmer das Board ansieht
+- **THEN** steht hinter der letzten Runde eine Ablage „Archiv“, und zwischen den
+  Spalten gibt es keine Pfeile
 
 ### Requirement: Thema anlegen
 Jeder angemeldete Teilnehmer SHALL eine Themenkarte mit Titel und optionaler
@@ -145,18 +152,19 @@ sein, ohne dass ihr Text an Kontrast verliert.
   blasser, und sie ist gegenüber den anderen Karten hervorgehoben
 
 ### Requirement: Detailansicht
-Ein Klick auf eine Karte SHALL sie groß in einer Detailansicht öffnen, ohne
-Eingabefelder. Die Detailansicht MUST Titel, vollständige Beschreibung, Spalte und
-verbleibende Termine, Namen, Ersteller mit Datum und den Verlauf der Karte zeigen.
-Sie öffnet sich nur beim Teilnehmer, der geklickt hat. Ändert jemand anderes die
-Karte, MUST die Detailansicht den neuen Stand ohne Neuladen zeigen. Wird die Karte
-gelöscht oder archiviert, MUST sich die Detailansicht mit einem Hinweis schließen.
-Namen SHALL direkt in der Detailansicht ergänzt und entfernt werden können.
+Ein Klick auf eine Karte SHALL sie groß in einer Detailansicht öffnen. Die
+Detailansicht MUST Titel, vollständige Beschreibung, Spalte und verbleibende
+Termine, Namen, Ersteller mit Datum und den Verlauf der Karte zeigen. Titel,
+Beschreibung, Farbe und Namen SHALL direkt in der Detailansicht geändert werden
+können (siehe „Direkt auf dem Zettel bearbeiten“). Sie öffnet sich nur beim
+Teilnehmer, der geklickt hat. Ändert jemand anderes die Karte, MUST die
+Detailansicht den neuen Stand ohne Neuladen zeigen. Wird die Karte gelöscht oder
+archiviert, MUST sich die Detailansicht mit einem Hinweis schließen.
 
 #### Scenario: Karte öffnen
 - **WHEN** ein Teilnehmer auf die Karte „Release-Planung“ klickt
-- **THEN** sieht er sie groß mit vollständiger Beschreibung, ohne Eingabefelder,
-  und mit einem Button „Bearbeiten“
+- **THEN** sieht er sie groß mit vollständiger Beschreibung, ohne Button
+  „Bearbeiten“
 
 #### Scenario: Nur bei mir
 - **WHEN** Anna eine Karte anklickt
@@ -169,36 +177,7 @@ Namen SHALL direkt in der Detailansicht ergänzt und entfernt werden können.
 
 #### Scenario: Name in der Detailansicht ergänzen
 - **WHEN** ein Teilnehmer in der Detailansicht den Namen „Carla“ hinzufügt
-- **THEN** steht „Carla“ an der Karte, ohne dass der Bearbeiten-Modus geöffnet wurde
-
-### Requirement: Bearbeiten aus der Detailansicht
-Die Detailansicht SHALL einen Button „Bearbeiten“ haben, der dieselbe Ansicht in
-einen Bearbeiten-Modus mit Titel und Beschreibung umschaltet. „Speichern“ und
-„Abbrechen“ MUST in die Detailansicht zurückführen; „Abbrechen“ verwirft die
-Eingaben. „Löschen“ MUST nur im Bearbeiten-Modus angeboten werden. Ein neues Thema
-SHALL direkt im Bearbeiten-Modus beginnen. Ändert ein anderer Teilnehmer die Karte,
-während sie bearbeitet wird, MUST ein Hinweis erscheinen, ohne die Eingaben zu
-überschreiben.
-
-#### Scenario: Bearbeiten und speichern
-- **GIVEN** die Detailansicht der Karte „Release“ ist offen
-- **WHEN** der Teilnehmer auf „Bearbeiten“ klickt, den Titel in „Release-Planung“
-  ändert und speichert
-- **THEN** zeigt die Detailansicht den neuen Titel
-
-#### Scenario: Abbrechen
-- **WHEN** ein Teilnehmer im Bearbeiten-Modus Text ändert und „Abbrechen“ klickt
-- **THEN** zeigt die Detailansicht den unveränderten Inhalt
-
-#### Scenario: Löschen nur beim Bearbeiten
-- **WHEN** die Detailansicht offen ist
-- **THEN** wird kein Button „Löschen“ angeboten, im Bearbeiten-Modus schon
-
-#### Scenario: Gleichzeitig bearbeitet
-- **GIVEN** Anna bearbeitet die Karte „Release“
-- **WHEN** Ben die Karte speichert
-- **THEN** sieht Anna den Hinweis „Ben hat dieses Thema gerade geändert“, und ihre
-  Eingaben bleiben erhalten
+- **THEN** steht „Carla“ an der Karte
 
 ### Requirement: Besprochen markieren
 Während eines laufenden Termins SHALL jeder Teilnehmer eine Karte für diesen Termin
@@ -235,12 +214,12 @@ jede Karte wieder als nicht besprochen.
 Jede Karte SHALL eine Zettelfarbe aus genau sechs festen Tönen haben: Gelb,
 Orange, Rosa, Grün, Blau, Lila. Neue Karten MUST gelb sein, sofern beim Anlegen
 keine andere Farbe gewählt wird. Jeder Teilnehmer des Boards SHALL die Farbe jeder
-Karte im Bearbeiten-Modus der Detailansicht ändern können; die Auswahl MUST jeden
-Ton mit seinem Namen zugänglich machen, damit sie ohne Farbwahrnehmung bedienbar
-ist. Eine Farbänderung MUST bei allen Teilnehmern ohne Neuladen erscheinen und als
-„Karte bearbeitet“ mit alter und neuer Farbe im Audit-Log stehen. Andere Werte als
-die sechs Töne MUST abgelehnt werden. Die Farbe hat in der Anwendung keine
-festgelegte Bedeutung.
+Karte direkt auf dem großen Zettel ändern können; ein Klick auf eine Farbe MUST sie
+sofort speichern. Die Auswahl MUST jeden Ton mit seinem Namen zugänglich machen,
+damit sie ohne Farbwahrnehmung bedienbar ist. Eine Farbänderung MUST bei allen
+Teilnehmern ohne Neuladen erscheinen und als „Karte bearbeitet“ mit alter und neuer
+Farbe im Audit-Log stehen. Andere Werte als die sechs Töne MUST abgelehnt werden.
+Die Farbe hat in der Anwendung keine festgelegte Bedeutung.
 
 #### Scenario: Neue Karte ist gelb
 - **WHEN** ein Teilnehmer ein Thema ohne Farbwahl anlegt
@@ -252,9 +231,15 @@ festgelegte Bedeutung.
 
 #### Scenario: Farbe ändern
 - **GIVEN** Anna und Ben haben das Board geöffnet, die Karte „Budget“ ist gelb
-- **WHEN** Ben im Bearbeiten-Modus „Blau“ wählt und speichert
-- **THEN** ist „Budget“ bei Anna ohne Neuladen ein blauer Zettel, und das
-  Audit-Log enthält „Karte bearbeitet“ mit Ben als Akteur sowie Gelb und Blau
+- **WHEN** Ben auf dem großen Zettel „Blau“ anklickt
+- **THEN** ist „Budget“ bei Anna ohne Neuladen ein blauer Zettel, ohne dass Ben
+  speichern musste, und das Audit-Log enthält „Karte bearbeitet“ mit Ben als
+  Akteur sowie Gelb und Blau
+
+#### Scenario: Gleiche Farbe erneut
+- **GIVEN** die Karte „Budget“ ist blau
+- **WHEN** ein Teilnehmer „Blau“ anklickt
+- **THEN** wird nichts gespeichert und kein Audit-Eintrag erzeugt
 
 #### Scenario: Unbekannte Farbe
 - **WHEN** ein Client eine Karte mit der Farbe „rot“ speichern will
@@ -264,3 +249,78 @@ festgelegte Bedeutung.
 - **GIVEN** Karten, die vor dieser Änderung angelegt wurden
 - **WHEN** die Änderung eingespielt wird
 - **THEN** sind alle diese Karten gelb
+
+### Requirement: Direkt auf dem Zettel bearbeiten
+Titel und Beschreibung einer Karte SHALL im großen Zettel per Klick oder Tastatur
+direkt zum Eingabefeld werden, ohne Bearbeiten-Modus. Verlassen des Felds MUST
+speichern, beim Titel auch Enter; Escape MUST die Eingabe verwerfen. Ein
+unverändertes Feld MUST NOT gespeichert werden. Ein leerer Titel MUST NOT
+gespeichert werden; das Feld bleibt mit Fehlermeldung offen. Wird der Zettel mit
+einer geänderten Eingabe geschlossen, MUST sie gespeichert werden.
+
+#### Scenario: Titel direkt ändern
+- **GIVEN** der große Zettel „Release“ ist offen
+- **WHEN** der Teilnehmer auf den Titel klickt, „Release-Planung“ eingibt und Enter
+  drückt
+- **THEN** zeigt der Zettel bei allen Teilnehmern „Release-Planung“, ohne dass ein
+  Bearbeiten-Modus geöffnet wurde
+
+#### Scenario: Beschreibung beim Verlassen speichern
+- **WHEN** ein Teilnehmer in die Beschreibung klickt, Text ergänzt und danach
+  woanders hinklickt
+- **THEN** ist die neue Beschreibung gespeichert
+
+#### Scenario: Mit Escape verwerfen
+- **WHEN** ein Teilnehmer den Titel ändert und Escape drückt
+- **THEN** zeigt der Zettel den unveränderten Titel, nichts wurde gespeichert, und
+  der Zettel bleibt offen
+
+#### Scenario: Nichts geändert
+- **WHEN** ein Teilnehmer in den Titel klickt und ihn ohne Änderung verlässt
+- **THEN** wird nichts gespeichert und kein Audit-Eintrag erzeugt
+
+#### Scenario: Leerer Titel
+- **WHEN** ein Teilnehmer den Titel leert und Enter drückt
+- **THEN** wird nichts gespeichert, und am Feld steht eine Fehlermeldung
+
+#### Scenario: Schließen mit offener Eingabe
+- **WHEN** ein Teilnehmer die Beschreibung ändert und den Zettel direkt schließt
+- **THEN** ist die neue Beschreibung gespeichert
+
+#### Scenario: Kein Bearbeiten-Button
+- **WHEN** ein Teilnehmer einen großen Zettel öffnet
+- **THEN** gibt es keinen Button „Bearbeiten“
+
+### Requirement: Löschen direkt auf dem Zettel
+Der große Zettel einer bestehenden Karte SHALL „Löschen“ direkt anbieten, ohne
+vorher einen Modus zu öffnen, als Symbol mit dem zugänglichen Namen „Löschen“. Vor
+dem Löschen MUST wie bisher eine Bestätigung abgefragt werden (siehe „Thema
+löschen“).
+
+#### Scenario: Löschen ohne Bearbeiten-Modus
+- **GIVEN** der große Zettel „Release“ ist offen
+- **WHEN** der Teilnehmer auf das Symbol „Löschen“ klickt und bestätigt
+- **THEN** ist „Release“ bei allen vom Board verschwunden und der große Zettel
+  geschlossen
+
+### Requirement: Gleichzeitig dasselbe Feld bearbeiten
+Ändert ein anderer Teilnehmer ein Feld, das ich gerade bearbeite, MUST meine Eingabe
+erhalten bleiben, und am Feld MUST ein Hinweis mit dem Namen der Person und
+„Neuen Stand übernehmen“ erscheinen. Speichere ich trotzdem, gilt meine Eingabe.
+Andere Felder desselben Zettels MUST sich währenddessen weiter live aktualisieren.
+
+#### Scenario: Gleichzeitig am Titel
+- **GIVEN** Anna bearbeitet den Titel der Karte „Release“
+- **WHEN** Ben den Titel derselben Karte speichert
+- **THEN** sieht Anna am Titel den Hinweis „Ben hat dieses Thema gerade geändert“,
+  und ihre Eingabe bleibt erhalten
+
+#### Scenario: Neuen Stand übernehmen
+- **GIVEN** Anna sieht den Hinweis am Titel
+- **WHEN** sie „Neuen Stand übernehmen“ klickt
+- **THEN** steht Bens Titel im Feld, und Annas Eingabe ist verworfen
+
+#### Scenario: Anderes Feld ändert sich
+- **GIVEN** Anna bearbeitet den Titel der Karte „Release“
+- **WHEN** Ben die Beschreibung derselben Karte ändert
+- **THEN** sieht Anna die neue Beschreibung sofort, ohne Hinweis am Titel

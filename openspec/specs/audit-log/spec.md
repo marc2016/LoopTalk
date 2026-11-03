@@ -13,7 +13,7 @@ werden. Der Eintrag MUST in derselben Transaktion wie die Änderung geschrieben
 werden, sodass es keine Änderung ohne Eintrag gibt.
 
 Protokolliert werden mindestens:
-- Board erstellt, umbenannt
+- Board erstellt, umbenannt, Wand geändert
 - Teilnehmer beigetreten, aktiv/inaktiv gesetzt
 - Karte angelegt, bearbeitet, gelöscht (mit letztem Inhalt)
 - Name an einer Karte hinzugefügt, entfernt
@@ -29,6 +29,11 @@ werden nicht protokolliert.
 - **WHEN** Ben den Titel einer Karte von „Release“ auf „Release-Planung“ ändert
 - **THEN** enthält das Audit-Log einen Eintrag „Karte bearbeitet“ mit Ben als
   Akteur, Zeitpunkt sowie altem und neuem Titel
+
+#### Scenario: Wand geändert
+- **WHEN** Ben die Wand des Boards von Papier auf Kork stellt
+- **THEN** enthält das Audit-Log einen Eintrag „Wand geändert“ mit Ben als Akteur,
+  Zeitpunkt sowie Papier und Kork
 
 #### Scenario: Fehlgeschlagene Aktion
 - **WHEN** das Beenden eines Termins wegen eines Versionskonflikts abgelehnt wird

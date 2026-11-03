@@ -239,9 +239,13 @@ Während eines laufenden Termins SHALL jeder Teilnehmer eine Karte über „Alle
 zeigen“ in der Detailansicht in den gemeinsamen Fokus nehmen können. Pro Termin
 MUST höchstens eine Karte im Fokus sein; eine neu gezeigte Karte ersetzt die
 vorige. Die Fokuskarte MUST bei allen Teilnehmern, die das Board geöffnet haben,
-groß geöffnet werden, mit dem Hinweis, wer sie zeigt. Teilnehmer, die gerade eine
-Karte bearbeiten oder einen anderen Dialog geöffnet haben, MUST NOT unterbrochen
-werden; sie sehen stattdessen eine Leiste „<Name> zeigt: <Titel>“ mit „Ansehen“.
+groß geöffnet werden, mit dem Hinweis, wer sie zeigt. In der Fokusansicht SHALL
+jeder Teilnehmer Titel, Beschreibung, Farbe und Namen direkt ändern können, wie in
+der eigenen Detailansicht. Teilnehmer, die gerade in ihrer eigenen Detailansicht
+ein Feld bearbeiten, ein neues Thema anlegen oder einen anderen Dialog geöffnet
+haben, MUST NOT unterbrochen werden; sie sehen stattdessen eine Leiste „<Name>
+zeigt: <Titel>“ mit „Ansehen“. Wechselt oder endet der Fokus, während jemand in der
+Fokusansicht ein Feld bearbeitet, MUST seine geänderte Eingabe gespeichert werden.
 Schließt ein Teilnehmer die Fokusansicht, schließt sie sich nur bei ihm, und die
 Leiste mit „Zurück zum Fokus“ erscheint. „Fokus beenden“ MUST den Fokus für alle
 beenden. Der Fokus MUST mit dem Beenden des Termins enden und endet, wenn die
@@ -252,6 +256,22 @@ Fokuskarte sofort sehen. Zeigen und Fokus beenden erzeugen keinen Audit-Eintrag.
 - **GIVEN** ein laufender Termin, Anna und Ben haben das Board geöffnet
 - **WHEN** Anna die Karte „Release-Planung“ allen zeigt
 - **THEN** öffnet sich „Release-Planung“ bei Ben groß mit „Anna zeigt“
+
+#### Scenario: Im Fokus bearbeiten
+- **GIVEN** Anna zeigt „Release-Planung“ allen
+- **WHEN** Ben in der Fokusansicht die Beschreibung ergänzt und das Feld verlässt
+- **THEN** sehen Anna und Ben die neue Beschreibung in der Fokusansicht
+
+#### Scenario: Farbe im Fokus ändern
+- **GIVEN** Anna zeigt die gelbe Karte „Budget“ allen
+- **WHEN** Ben in der Fokusansicht „Grün“ anklickt
+- **THEN** ist die Fokusansicht bei Anna und Ben grün
+
+#### Scenario: Fokuswechsel während der Eingabe
+- **GIVEN** Ben ergänzt in der Fokusansicht von „Release-Planung“ die Beschreibung
+- **WHEN** Anna „Budget“ allen zeigt
+- **THEN** ist Bens Ergänzung an „Release-Planung“ gespeichert, und bei Ben
+  erscheint „Budget“ mit „Anna zeigt“
 
 #### Scenario: Anderes Thema zeigen
 - **GIVEN** „Release-Planung“ ist im Fokus
@@ -268,9 +288,17 @@ Fokuskarte sofort sehen. Zeigen und Fokus beenden erzeugen keinen Audit-Eintrag.
 - **THEN** schließt sich die Fokusansicht bei allen, und die Leiste verschwindet
 
 #### Scenario: Nicht beim Bearbeiten unterbrechen
-- **GIVEN** Ben bearbeitet gerade eine Karte
+- **GIVEN** Ben bearbeitet in seiner eigenen Detailansicht gerade den Titel einer
+  Karte
 - **WHEN** Anna eine Karte allen zeigt
-- **THEN** bleibt Bens Bearbeitung offen, und er sieht die Leiste „Anna zeigt“
+- **THEN** bleibt Bens Detailansicht mit seiner Eingabe offen, und er sieht die
+  Leiste „Anna zeigt“
+
+#### Scenario: Ohne laufende Eingabe übernimmt der Fokus
+- **GIVEN** Ben hat eine Karte in seiner eigenen Detailansicht offen, bearbeitet
+  aber kein Feld
+- **WHEN** Anna eine Karte allen zeigt
+- **THEN** erscheint bei Ben die Fokusansicht mit „Anna zeigt“
 
 #### Scenario: Später dazukommen
 - **GIVEN** „Release-Planung“ ist im Fokus
