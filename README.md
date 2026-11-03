@@ -20,6 +20,9 @@ Termin eine Spalte weiter und wird nach „Letzter Termin“ archiviert.
   Sie hängen als Zettel am Board, in einer von sechs frei wählbaren Farben, und
   altern sichtbar, je näher sie dem Archiv kommen.
 - **Live**: Änderungen und wer gerade auf dem Board ist, erscheinen sofort bei allen.
+- **Bedienung über der Wand**: Das Board füllt die ganze Seite; eine Glasleiste oben
+  (Board-Name, Bereiche, Link, Anwesenheit) und ein Termin-Dock unten (Termin, Rollen,
+  Starten/Beenden) schweben darüber.
 - **Audit-Log**: Jede Änderung wird unveränderlich mit Person und Zeitpunkt
   festgehalten.
 - **Login** ausschließlich über [Dex](https://dexidp.io) (OpenID Connect). Ohne

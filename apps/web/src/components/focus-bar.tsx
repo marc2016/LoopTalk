@@ -3,7 +3,7 @@ import { MonitorUpIcon } from "lucide-react";
 import { PersonAvatar } from "@/components/person";
 import { Button } from "@/components/ui/button";
 
-/** Leiste für den gemeinsamen Fokus, wenn die Fokusansicht gerade nicht offen ist. */
+/** Glas-Toast über dem Dock für den gemeinsamen Fokus, wenn die Fokusansicht gerade nicht offen ist. */
 export function FocusBar({
   by,
   title,
@@ -22,7 +22,7 @@ export function FocusBar({
     <div
       role="status"
       data-testid="focus-bar"
-      className="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-xl border border-primary/25 bg-running px-4 py-2.5 text-sm animate-in fade-in-0"
+      className="glass flex flex-wrap items-center gap-x-4 gap-y-2 rounded-2xl px-4 py-2.5 text-sm ring-1 ring-primary/25 motion-safe:animate-in motion-safe:fade-in-0 motion-safe:slide-in-from-bottom-2"
     >
       <MonitorUpIcon className="size-4 text-primary" aria-hidden />
       <span className="flex min-w-0 items-center gap-2">

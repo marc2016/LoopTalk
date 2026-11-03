@@ -5,6 +5,7 @@ import { createBrowserRouter, RouterProvider } from "react-router";
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AppShell } from "@/components/app-shell";
+import { PageContainer } from "@/components/page-container";
 import { ApiError } from "@/lib/api";
 import { AuditPage } from "@/pages/audit-page";
 import { BoardLayout } from "@/pages/board-layout";
@@ -28,7 +29,14 @@ const router = createBrowserRouter([
   {
     element: <AppShell />,
     children: [
-      { index: true, element: <HomePage /> },
+      {
+        index: true,
+        element: (
+          <PageContainer>
+            <HomePage />
+          </PageContainer>
+        ),
+      },
       {
         path: "b/:slug",
         element: <BoardLayout />,
@@ -39,7 +47,14 @@ const router = createBrowserRouter([
           { path: "participants", element: <ParticipantsPage /> },
         ],
       },
-      { path: "*", element: <NotFoundPage /> },
+      {
+        path: "*",
+        element: (
+          <PageContainer>
+            <NotFoundPage />
+          </PageContainer>
+        ),
+      },
     ],
   },
 ]);
@@ -49,7 +64,7 @@ createRoot(document.getElementById("root")!).render(
     <QueryClientProvider client={queryClient}>
       <TooltipProvider delayDuration={200}>
         <RouterProvider router={router} />
-        {/* Oben, damit Hinweise die Bestätigungsleiste am unteren Rand nicht verdecken */}
+        {/* Oben unter der Glasleiste, damit Hinweise das Dock am unteren Rand nicht verdecken */}
         <Toaster position="top-right" offset={72} richColors />
       </TooltipProvider>
     </QueryClientProvider>

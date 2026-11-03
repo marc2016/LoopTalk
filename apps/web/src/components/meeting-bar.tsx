@@ -1,9 +1,8 @@
 import type { BoardView, Participant, UserRef } from "@looptalk/shared";
-import { ChevronsUpDownIcon, PlayIcon, SquareIcon, TriangleAlertIcon } from "lucide-react";
+import { ChevronsUpDownIcon, ChevronUpIcon, PlayIcon, SquareIcon, TriangleAlertIcon } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { PersonAvatar } from "@/components/person";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
@@ -75,7 +74,8 @@ function RoleSelect({
             <ChevronsUpDownIcon aria-hidden className="opacity-50" />
           </Button>
         </PopoverTrigger>
-        <PopoverContent className="w-(--radix-popover-trigger-width) min-w-72 p-0" align="start">
+        {/* Nach oben: Das Dock liegt am unteren Rand. */}
+        <PopoverContent className="w-(--radix-popover-trigger-width) min-w-72 p-0" align="start" side="top">
           <Command>
             <CommandInput placeholder="Person suchen …" />
             <CommandList className="max-h-80">
@@ -136,49 +136,58 @@ function RoleOption({
   );
 }
 
+/** Termin-Dock: schwebt unten auf der Wand, die Bestätigung zum Beenden klappt darin auf. */
 export function MeetingBar({ slug, board, end }: { slug: string; board: BoardView; end: EndControls }) {
   const { meeting, participants } = board;
   const actions = useBoardActions(slug);
   const now = useNow(30_000);
   const active = participants.filter((p) => p.active);
   const running = meeting.status === "running";
+  // Auf schmalen Bildschirmen sind Rollen und Hinweis eingeklappt.
+  const [rolesOpen, setRolesOpen] = useState(false);
 
   const changeRoles = (moderatorId: number, protocolId: number | null) =>
     actions.setRoles.mutate({ moderatorId, protocolId, version: meeting.version });
 
   return (
-    <div className="grid gap-3">
+    <section
+      aria-label="Aktueller Termin"
+      data-state={meeting.status}
+      data-testid="meeting-dock"
+      className={cn(
+        "glass grid gap-3 rounded-2xl px-3 py-3 transition-colors motion-safe:animate-in motion-safe:fade-in-0 motion-safe:slide-in-from-bottom-2 sm:px-4",
+        running && "border-l-4 border-l-primary ring-1 ring-primary/20",
+      )}
+    >
       {board.tooFewParticipants && (
-        <Alert className="border-warning-foreground/20 bg-warning text-warning-foreground">
-          <TriangleAlertIcon aria-hidden />
-          <AlertTitle>Für die Rotation werden mindestens zwei aktive Teilnehmer benötigt</AlertTitle>
-          <AlertDescription className="text-warning-foreground/90">
-            Teile den Link zum Board, damit weitere Personen beitreten können.
-          </AlertDescription>
-        </Alert>
+        <p className="flex items-start gap-2 text-sm text-warning-foreground">
+          <TriangleAlertIcon className="mt-0.5 size-4 shrink-0" aria-hidden />
+          <span>
+            <span className="font-medium">Für die Rotation werden mindestens zwei aktive Teilnehmer benötigt.</span> Teile
+            den Link zum Board, damit weitere Personen beitreten können.
+          </span>
+        </p>
       )}
 
-      <section
-        aria-label="Aktueller Termin"
-        data-state={meeting.status}
-        className={cn(
-          "flex flex-wrap items-center gap-x-6 gap-y-3 rounded-xl border px-4 py-3 transition-colors",
-          running ? "border-primary/25 border-l-4 border-l-primary bg-running shadow-sm" : "bg-card shadow-xs",
-        )}
-      >
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-3 md:gap-x-6">
         <div className="flex items-center gap-2.5">
           <span className="text-lg font-semibold tracking-tight tabular-nums">Termin {meeting.number}</span>
           {running ? (
             <Badge className="gap-1.5 tabular-nums" data-testid="meeting-duration">
               <span className="size-1.5 animate-pulse rounded-full bg-primary-foreground" aria-hidden />
-              Läuft {formatDuration(meeting.startedAt!, now)}
+              {/* Auf dem Handy nur die Minuten, damit das Dock einzeilig bleibt. */}
+              <span className="hidden sm:inline">Läuft {formatDuration(meeting.startedAt!, now)}</span>
+              <span className="sm:hidden">{formatDuration(meeting.startedAt!, now).replace(/^seit /, "")}</span>
             </Badge>
           ) : (
             <Badge variant="outline">Geplant</Badge>
           )}
         </div>
 
-        <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
+        <div
+          id="dock-roles"
+          className={cn("flex-wrap items-center gap-x-5 gap-y-2 md:flex", rolesOpen ? "order-last flex basis-full" : "hidden")}
+        >
           <RoleSelect
             label="Moderation"
             value={meeting.moderator}
@@ -202,9 +211,22 @@ export function MeetingBar({ slug, board, end }: { slug: string; board: BoardVie
           </p>
         </div>
 
-        <div className="ml-auto">
+        <div className="ml-auto flex items-center gap-2">
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-sm"
+            className="md:hidden"
+            aria-label={rolesOpen ? "Rollen ausblenden" : "Rollen anzeigen"}
+            aria-expanded={rolesOpen}
+            aria-controls="dock-roles"
+            onClick={() => setRolesOpen((v) => !v)}
+          >
+            <ChevronUpIcon className={cn("transition-transform", rolesOpen && "rotate-180")} aria-hidden />
+          </Button>
           {running ? (
             <Button
+              className="max-sm:h-8 max-sm:px-2.5"
               onClick={end.openConfirm}
               // Erst bei echter Mausbewegung: Der Button erscheint nach „Termin starten“ direkt unter dem Zeiger.
               onPointerMove={() => end.setHint(true)}
@@ -218,16 +240,20 @@ export function MeetingBar({ slug, board, end }: { slug: string; board: BoardVie
               Termin beenden
             </Button>
           ) : (
-            <Button onClick={() => actions.start.mutate(meeting.version)} disabled={actions.start.isPending}>
+            <Button
+              className="max-sm:h-8 max-sm:px-2.5"
+              onClick={() => actions.start.mutate(meeting.version)}
+              disabled={actions.start.isPending}
+            >
               <PlayIcon aria-hidden />
               Termin starten
             </Button>
           )}
         </div>
-      </section>
+      </div>
 
       {end.confirming && (
-        <EndConfirmBar
+        <EndConfirm
           board={board}
           pending={actions.end.isPending}
           onCancel={end.closeConfirm}
@@ -243,15 +269,15 @@ export function MeetingBar({ slug, board, end }: { slug: string; board: BoardVie
           }}
         />
       )}
-    </div>
+    </section>
   );
 }
 
 /**
- * Nicht modale Bestätigung am unteren Rand: Das Board bleibt sichtbar und zeigt die
- * Vorschau, was beim Beenden passiert.
+ * Nicht modale Bestätigung, die im Dock aufklappt: Das Board bleibt sichtbar und zeigt
+ * die Vorschau, was beim Beenden passiert.
  */
-function EndConfirmBar({
+function EndConfirm({
   board,
   pending,
   onCancel,
@@ -273,12 +299,12 @@ function EndConfirmBar({
       aria-modal="false"
       aria-labelledby="end-confirm-title"
       aria-describedby="end-confirm-description"
-      className="fixed inset-x-0 bottom-0 z-40 px-4 pb-4 animate-in fade-in-0 slide-in-from-bottom-4"
+      className="motion-safe:animate-in motion-safe:fade-in-0 motion-safe:slide-in-from-bottom-2"
       onKeyDown={(e) => {
         if (e.key === "Escape") onCancel();
       }}
     >
-      <div className="mx-auto flex max-w-3xl flex-wrap items-center gap-x-6 gap-y-3 rounded-xl border bg-card px-5 py-4 shadow-lg">
+      <div className="flex flex-wrap items-center gap-x-6 gap-y-3 border-t border-border/60 pt-3">
         <div className="min-w-60 flex-1">
           <p id="end-confirm-title" className="font-semibold">
             Termin {meeting.number} beenden?

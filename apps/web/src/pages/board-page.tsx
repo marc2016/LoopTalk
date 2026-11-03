@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { columns, lifecycle } from "@/lib/lifecycle";
 import { useBoardActions } from "@/lib/queries";
 import { useCardShift } from "@/lib/use-card-shift";
+import { useDockHeight } from "@/lib/use-dock-height";
 import { useLandingCards } from "@/lib/use-landing-cards";
 import { useOtherDialogOpen } from "@/lib/use-other-dialog-open";
 import { cn } from "@/lib/utils";
@@ -81,29 +82,20 @@ export function BoardPage() {
 
   const { landing, landed } = useLandingCards(board.cards.map((c) => c.id));
 
+  // Fester Stapel unten (Fokus-Toast + Dock): Seine Höhe wird zum Innenabstand der Wand.
+  const dockRef = useRef<HTMLDivElement>(null);
+  useDockHeight(dockRef);
+
   const previewFor = (column: Column): EndPreview => (!previewing ? null : column === 3 ? "archive" : "advance");
 
   return (
-    <div className={cn("grid gap-5", confirming && "pb-32")}>
-      <MeetingBar slug={slug} board={board} end={end} />
-      {focus && focusCard && !focusOpen && (
-        <FocusBar
-          by={focus.by}
-          title={focusCard.title}
-          busy={busy}
-          onShow={() => {
-            setDismissedFocus(null);
-            if (personalBusy) return;
-            setSheet(null);
-          }}
-          onEnd={() => actions.unfocus.mutate(undefined)}
-        />
-      )}
+    <>
 
       {/* Eine Wand für alle drei Spalten: Etiketten, Trennlinien, Schein und Ablage statt Kästen */}
       <div
         ref={boardRef}
-        className="wall grid rounded-xl p-4 md:grid-cols-3 md:p-5"
+        // Randlos: Die Wand ist die Seite; unten so viel Innenabstand, wie das Dock hoch ist.
+        className="wall grid min-h-[calc(100dvh-var(--bar-h))] px-4 pt-5 pb-[calc(var(--dock-h)+2rem)] md:grid-cols-3 md:px-6"
         data-testid="board-wall"
         data-wall={board.wall}
         data-previewing={previewing || undefined}
@@ -204,6 +196,29 @@ export function BoardPage() {
         })}
       </div>
 
+      {/* Schwebende Bedienung unten: Fokus-Toast über dem Termin-Dock, mit sicherem Bereich des Geräts */}
+      <div
+        ref={dockRef}
+        className="pointer-events-none fixed inset-x-0 bottom-0 z-40 px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:px-4 sm:pb-[max(1rem,env(safe-area-inset-bottom))]"
+      >
+        <div className="pointer-events-auto mx-auto grid max-w-4xl gap-2">
+          {focus && focusCard && !focusOpen && (
+            <FocusBar
+              by={focus.by}
+              title={focusCard.title}
+              busy={busy}
+              onShow={() => {
+                setDismissedFocus(null);
+                if (personalBusy) return;
+                setSheet(null);
+              }}
+              onEnd={() => actions.unfocus.mutate(undefined)}
+            />
+          )}
+          <MeetingBar slug={slug} board={board} end={end} />
+        </div>
+      </div>
+
       {focusOpen ? (
         // Fokusansicht ersetzt eine offene Detailansicht; bearbeitet wird direkt darin.
         <CardSheet
@@ -231,6 +246,6 @@ export function BoardPage() {
           />
         )
       )}
-    </div>
+    </>
   );
 }

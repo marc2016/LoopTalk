@@ -12,7 +12,7 @@ export function PresenceBar({ users, connected }: { users: UserRef[]; connected:
           className={`size-2 rounded-full ${connected ? "bg-emerald-500" : "bg-muted-foreground/40"}`}
           aria-hidden
         />
-        {connected ? "Gerade da" : "Verbinde …"}
+        <span className="hidden md:inline">{connected ? "Gerade da" : "Verbinde …"}</span>
       </span>
       <AvatarGroup>
         {users.map((user) => (
