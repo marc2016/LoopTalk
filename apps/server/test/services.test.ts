@@ -58,6 +58,40 @@ describe("Boards", () => {
     expect(s.notifier.events).toEqual([]);
   });
 
+  it("Wand und Name ändern: je Feld ein Audit-Eintrag, Unverändertes erzeugt nichts", async () => {
+    const s = services(t.db);
+    const anna = await createUser(t.db, "Anna");
+    const ben = await createUser(t.db, "Ben");
+    const { slug } = await s.boards.create(anna, "Board");
+    let board = await s.boards.open(slug, ben);
+    expect(board.wall).toBe("paper");
+
+    expect((await s.boards.update(board, ben, { wall: "cork" })).wall).toBe("cork");
+    board = await s.boards.open(slug, ben);
+    expect((await s.boards.view(board)).wall).toBe("cork");
+    expect(s.notifier.events).toEqual([{ boardId: board.id, reason: "board.wall_changed" }]);
+
+    // Gleiche Wand erneut: nichts passiert.
+    await s.boards.update(board, ben, { wall: "cork" });
+    expect(s.notifier.events).toHaveLength(1);
+
+    // Name und Wand zugleich: zwei Einträge, ein Live-Event.
+    const updated = await s.boards.update(board, ben, { name: "Neu", wall: "whiteboard" });
+    expect(updated).toMatchObject({ name: "Neu", wall: "whiteboard" });
+    expect(s.notifier.events).toHaveLength(2);
+    expect(await auditActions(t.db, board.id)).toEqual([
+      "board.created",
+      "board.wall_changed",
+      "board.renamed",
+      "board.wall_changed",
+    ]);
+    const page = await s.audit.list(board.id, { limit: 50 });
+    expect(page.entries.find((e) => e.action === "board.wall_changed" && (e.data.before as { wall?: string }).wall === "cork")!.data).toEqual({
+      before: { wall: "cork" },
+      after: { wall: "whiteboard" },
+    });
+  });
+
   it("beim Login allen Boards beitreten: Topf, Audit und Live-Update je Board, genau einmal", async () => {
     const s = services(t.db);
     const anna = await createUser(t.db, "Anna");
@@ -396,7 +430,7 @@ describe("Audit-Log", () => {
     const board = await s.boards.open(slug, anna);
     const { id } = await s.cards.create(board, anna, { title: "Gleich", description: "" });
     await s.cards.update(board, anna, id, { title: "Gleich" });
-    await s.boards.rename(board, anna, "Board");
+    await s.boards.update(board, anna, { name: "Board", wall: "paper" });
     expect(await auditActions(t.db, board.id)).toEqual(["board.created", "card.created"]);
   });
 });

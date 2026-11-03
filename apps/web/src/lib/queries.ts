@@ -8,6 +8,7 @@ import type {
   Me,
   MeetingHistoryEntry,
   SetRolesInput,
+  UpdateBoardInput,
   UpdateCardInput,
   UserRef,
 } from "@looptalk/shared";
@@ -82,8 +83,8 @@ export function useBoardActions(slug: string) {
   const base = `/boards/${slug}`;
   const qc = useQueryClient();
   return {
-    rename: useMutation({
-      mutationFn: (name: string) => api<BoardSummary>(base, { method: "PATCH", body: { name } }),
+    updateBoard: useMutation({
+      mutationFn: (input: UpdateBoardInput) => api<BoardSummary>(base, { method: "PATCH", body: input }),
       onSuccess: () => {
         void qc.invalidateQueries({ queryKey: keys.board(slug) });
         void qc.invalidateQueries({ queryKey: keys.boards });

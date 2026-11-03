@@ -3,7 +3,7 @@ import { LinkIcon } from "lucide-react";
 import { NavLink, Outlet, useOutletContext, useParams } from "react-router";
 import { toast } from "sonner";
 import { PresenceBar } from "@/components/presence-bar";
-import { RenameBoardDialog } from "@/components/rename-board-dialog";
+import { EditBoardDialog } from "@/components/edit-board-dialog";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ApiError } from "@/lib/api";
@@ -58,7 +58,7 @@ export function BoardLayout() {
       <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
         <div className="flex items-center gap-1">
           <h1 className="text-2xl font-semibold tracking-tight">{board.data.name}</h1>
-          <RenameBoardDialog slug={slug} name={board.data.name} />
+          <EditBoardDialog slug={slug} name={board.data.name} wall={board.data.wall} />
         </div>
         <Button variant="outline" size="sm" onClick={() => void copyLink()}>
           <LinkIcon aria-hidden />

@@ -5,7 +5,9 @@ durch drei Spalten: Ein neues Thema startet in „Neu“, rückt mit jedem beend
 Termin eine Spalte weiter und wird nach „Letzter Termin“ archiviert.
 
 - **Mehrere Boards**: Die Startseite listet alle Boards, jedes Board hat außerdem
-  einen nicht erratbaren Link. Jeder, der sich einmal angemeldet hat, ist Teilnehmer
+  einen nicht erratbaren Link. Jedes Board ist eine Wand aus Papier (Standard), Kork
+  oder Whiteboard; die Wand wird im Dialog „Board bearbeiten“ gewählt und gilt für
+  alle. Jeder, der sich einmal angemeldet hat, ist Teilnehmer
   jedes Boards und kommt in dessen Rotation; auf der Teilnehmerseite lässt sich
   jemand pro Board inaktiv setzen. Es gibt keine Rollenrechte; jeder darf alles.
 - **Termine** werden per Button gestartet und beendet. Erst beim Beenden wird die

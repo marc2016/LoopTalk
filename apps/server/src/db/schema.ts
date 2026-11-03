@@ -1,4 +1,12 @@
-import { type AuditAction, type AuditEntry, CARD_COLORS, type CardColor, type MeetingStatus } from "@looptalk/shared";
+import {
+  type AuditAction,
+  type AuditEntry,
+  BOARD_WALLS,
+  type BoardWall,
+  CARD_COLORS,
+  type CardColor,
+  type MeetingStatus,
+} from "@looptalk/shared";
 import { sql } from "drizzle-orm";
 import {
   type AnyPgColumn,
@@ -33,15 +41,20 @@ export const users = pgTable("users", {
   createdAt: createdAt(),
 });
 
-export const boards = pgTable("boards", {
-  id: id(),
-  slug: varchar({ length: 32 }).notNull().unique(),
-  name: text().notNull(),
-  createdBy: ref("created_by")
-    .notNull()
-    .references(() => users.id),
-  createdAt: createdAt(),
-});
+export const boards = pgTable(
+  "boards",
+  {
+    id: id(),
+    slug: varchar({ length: 32 }).notNull().unique(),
+    name: text().notNull(),
+    wall: text().$type<BoardWall>().notNull().default("paper"),
+    createdBy: ref("created_by")
+      .notNull()
+      .references(() => users.id),
+    createdAt: createdAt(),
+  },
+  (t) => [check("boards_wall_check", sql`${t.wall} IN (${sql.raw(BOARD_WALLS.map((w) => `'${w}'`).join(", "))})`)],
+);
 
 export const boardMembers = pgTable(
   "board_members",

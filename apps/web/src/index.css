@@ -44,13 +44,9 @@
 
     --color-note-foreground: var(--note-foreground);
     --color-note-muted: var(--note-muted);
-
-    /* Pfeile zwischen den Spalten stupsen während der Vorschau zur nächsten Spalte */
-    --animate-nudge: nudge 1.2s ease-in-out infinite;
-    @keyframes nudge {
-        0%, 100% { transform: translateX(0); }
-        50% { transform: translateX(3px); }
-    }
+    /* Auf der Wand: gedämpfte Schrift und Trennlinien je Wand (gesetzt von .wall[data-wall]). */
+    --color-wall-muted: var(--wall-muted);
+    --color-wall-line: var(--wall-line);
 }
 
 :root {
@@ -85,6 +81,18 @@
 
     /* Laufender Termin: leichte Akzentfläche. Primärfarbe darauf 5,63:1. */
     --running: oklch(0.97 0.015 258);
+
+    /* Wände des Boards: Grundton, gedämpfte Schrift (>= 4,5:1) und Trennlinie (>= 3:1)
+       je Wand; geprüft in wall.test.ts. Muster und Etikett stehen bei .wall[data-wall]. */
+    --wall-paper-bg: oklch(0.975 0.012 85);
+    --wall-paper-muted: oklch(0.46 0.02 85);
+    --wall-paper-line: oklch(0.6 0.02 85);
+    --wall-cork-bg: oklch(0.9 0.045 70);
+    --wall-cork-muted: oklch(0.44 0.03 70);
+    --wall-cork-line: oklch(0.55 0.04 70);
+    --wall-whiteboard-bg: oklch(0.99 0.003 255);
+    --wall-whiteboard-muted: oklch(0.46 0.012 255);
+    --wall-whiteboard-line: oklch(0.6 0.012 255);
 
     /* Personenfarben: Fläche und Schrift je Person, Farbton aus der Benutzer-ID.
        Kontrast Schrift/Fläche zwischen 6,62:1 und 7,57:1 (WCAG AA). */
@@ -141,11 +149,120 @@
   initial-value: 10px;
 }
 
-/* Fläche, auf der Zettel kleben: feines Punktraster über der Spaltenfarbe. */
-.note-surface {
-  background-image: radial-gradient(circle, oklch(0.2 0.01 255 / 0.09) 1px, transparent 1.2px);
-  background-size: 14px 14px;
-  background-position: 7px 7px;
+/* ---------------------------------------------------------------------------
+   Wand: eine Fläche für alle drei Spalten, Muster und Etikett je Wand
+   --------------------------------------------------------------------------- */
+
+.wall {
+  position: relative;
+  background-color: var(--wall-bg);
+  background-image: var(--wall-pattern);
+  background-size: var(--wall-pattern-size);
+  background-position: var(--wall-pattern-position, 0 0);
+  box-shadow: inset 0 1px 0 oklch(1 0 0 / 0.5), inset 0 0 0 1px oklch(0.2 0.02 70 / 0.06);
+}
+/* Papier: warm und hell, feines Punktraster. */
+.wall[data-wall="paper"] {
+  --wall-bg: var(--wall-paper-bg);
+  --wall-muted: var(--wall-paper-muted);
+  --wall-line: var(--wall-paper-line);
+  --wall-label: oklch(1 0 0 / 0.72);
+  --wall-glow: oklch(0.85 0.09 75 / 0.55);
+  --wall-pattern: radial-gradient(circle, oklch(0.2 0.02 70 / 0.1) 1px, transparent 1.2px);
+  --wall-pattern-size: 14px 14px;
+  --wall-pattern-position: 7px 7px;
+}
+/* Kork: helles Kork mit feiner Körnung aus zwei versetzten Rastern. */
+.wall[data-wall="cork"] {
+  --wall-bg: var(--wall-cork-bg);
+  --wall-muted: var(--wall-cork-muted);
+  --wall-line: var(--wall-cork-line);
+  --wall-label: oklch(0.99 0.01 85 / 0.82);
+  --wall-glow: oklch(0.8 0.1 70 / 0.6);
+  --wall-pattern:
+    radial-gradient(circle, oklch(0.3 0.05 60 / 0.08) 0.8px, transparent 1px),
+    radial-gradient(circle, oklch(1 0 0 / 0.35) 0.8px, transparent 1px);
+  --wall-pattern-size: 7px 9px, 11px 13px;
+  --wall-pattern-position: 0 0, 4px 6px;
+}
+/* Whiteboard: kühles Weiß mit zartem Linienraster. */
+.wall[data-wall="whiteboard"] {
+  --wall-bg: var(--wall-whiteboard-bg);
+  --wall-muted: var(--wall-whiteboard-muted);
+  --wall-line: var(--wall-whiteboard-line);
+  --wall-label: oklch(1 0 0 / 0.85);
+  --wall-glow: oklch(0.88 0.07 75 / 0.6);
+  --wall-pattern:
+    linear-gradient(oklch(0.2 0.01 255 / 0.05) 1px, transparent 1px),
+    linear-gradient(90deg, oklch(0.2 0.01 255 / 0.05) 1px, transparent 1px);
+  --wall-pattern-size: 24px 24px;
+}
+
+/* Spaltenkopf als aufgeklebtes Etikett, Drehung fest aus der Spaltennummer. */
+.wall-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.375rem 0.75rem 0.375rem 0.5rem;
+  border-radius: 3px;
+  background: var(--wall-label);
+  box-shadow: 0 1px 1px oklch(0.2 0.02 70 / 0.1), 0 3px 6px oklch(0.2 0.02 70 / 0.08);
+  transform-origin: left center;
+}
+.wall-label[data-column="1"] { rotate: -0.8deg; }
+.wall-label[data-column="2"] { rotate: 0.5deg; }
+.wall-label[data-column="3"] { rotate: -0.4deg; }
+.wall-label[data-last-round] {
+  background: var(--last-round);
+  color: var(--last-round-foreground);
+}
+
+/* Warmer Schein hinter den Zetteln der letzten Runde; pulsiert während der Vorschau. */
+.wall-glow {
+  position: absolute;
+  inset: 2.5rem -0.75rem -0.5rem;
+  z-index: -1;
+  border-radius: 1.25rem;
+  background: radial-gradient(ellipse at 50% 30%, var(--wall-glow), transparent 72%);
+  pointer-events: none;
+}
+@keyframes glow-pulse {
+  0%, 100% { opacity: 0.75; }
+  50% { opacity: 1; }
+}
+@media (prefers-reduced-motion: no-preference) {
+  [data-previewing] .wall-glow { animation: glow-pulse 1.6s ease-in-out infinite; }
+}
+
+/* Archiv-Ablage am Ende des Zeitstrahls. */
+.wall-tray {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.375rem;
+  margin-top: auto;
+  min-height: 4rem;
+  border: 1.5px dashed var(--wall-line);
+  border-radius: 0.75rem;
+  color: var(--wall-muted);
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+/* Geister-Zettel: Platzhalter in Zettelgröße für eine leere Spalte. */
+.note-ghost {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  aspect-ratio: 1;
+  padding: 1rem;
+  border: 1.5px dashed var(--wall-line);
+  border-radius: 2px;
+  rotate: -1deg;
+  text-align: center;
+  font-size: 0.875rem;
+  line-height: 1.3;
+  color: var(--wall-muted);
 }
 
 /* Papier: Farbe, Alter, Ecke und Schatten. Gilt für kleine Zettel und den großen Zettel. */

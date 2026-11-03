@@ -1,9 +1,11 @@
 import type { AuditAction, AuditEntry, CardColor, UserRef } from "@looptalk/shared";
 import { noteColorNames } from "./note";
+import { wallName } from "./wall";
 
 export const actionLabels: Record<AuditAction, string> = {
   "board.created": "Board erstellt",
   "board.renamed": "Board umbenannt",
+  "board.wall_changed": "Wand geändert",
   "member.joined": "Beigetreten",
   "member.activated": "Teilnehmer aktiviert",
   "member.deactivated": "Teilnehmer deaktiviert",
@@ -41,6 +43,8 @@ export function describeAudit(entry: AuditEntry): { text: string; details: strin
       return { text: `hat das Board ${quote(str(after.name))} erstellt`, details };
     case "board.renamed":
       return { text: `hat das Board von ${quote(str(before.name))} in ${quote(str(after.name))} umbenannt`, details };
+    case "board.wall_changed":
+      return { text: `hat die Wand von ${wallName(before.wall)} auf ${wallName(after.wall)} gestellt`, details };
     case "member.joined":
       return { text: "ist dem Board beigetreten", details };
     case "member.activated":

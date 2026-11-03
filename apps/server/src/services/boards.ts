@@ -4,6 +4,7 @@ import {
   type CardView,
   MIN_ACTIVE_PARTICIPANTS,
   type Participant,
+  type UpdateBoardInput,
 } from "@looptalk/shared";
 import { and, asc, eq, inArray, isNull, notExists, sql } from "drizzle-orm";
 import { recordAudit } from "../audit/record";
@@ -112,21 +113,31 @@ export function boardService({ db, notifier }: ServiceDeps) {
       for (const board of missing) await join(board, userId);
     },
 
-    async rename(board: BoardRow, userId: number, name: string): Promise<BoardSummary> {
-      if (board.name === name) return summary(board);
+    /** Name und/oder Wand ändern; je geändertem Feld ein Audit-Eintrag, Unverändertes erzeugt nichts. */
+    async update(board: BoardRow, userId: number, input: UpdateBoardInput): Promise<BoardSummary> {
+      const name = input.name !== undefined && input.name !== board.name ? input.name : undefined;
+      const wall = input.wall !== undefined && input.wall !== board.wall ? input.wall : undefined;
+      if (name === undefined && wall === undefined) return summary(board);
       const updated = await db.transaction(async (tx) => {
-        const [updated] = await tx.update(boards).set({ name }).where(eq(boards.id, board.id)).returning();
-        await recordAudit(tx, {
-          boardId: board.id,
-          actorId: userId,
-          action: "board.renamed",
-          targetType: "board",
-          targetId: board.id,
-          data: { before: { name: board.name }, after: { name } },
-        });
+        const [updated] = await tx
+          .update(boards)
+          .set({ ...(name !== undefined && { name }), ...(wall !== undefined && { wall }) })
+          .where(eq(boards.id, board.id))
+          .returning();
+        const audit = { boardId: board.id, actorId: userId, targetType: "board" as const, targetId: board.id };
+        if (name !== undefined) {
+          await recordAudit(tx, { ...audit, action: "board.renamed", data: { before: { name: board.name }, after: { name } } });
+        }
+        if (wall !== undefined) {
+          await recordAudit(tx, {
+            ...audit,
+            action: "board.wall_changed",
+            data: { before: { wall: board.wall }, after: { wall } },
+          });
+        }
         return updated!;
       });
-      notifier.boardChanged(board.id, "board.renamed");
+      notifier.boardChanged(board.id, name !== undefined ? "board.renamed" : "board.wall_changed");
       return summary(updated);
     },
 
@@ -135,7 +146,7 @@ export function boardService({ db, notifier }: ServiceDeps) {
 }
 
 function summary(board: BoardRow): BoardSummary {
-  return { slug: board.slug, name: board.name, createdAt: board.createdAt.toISOString() };
+  return { slug: board.slug, name: board.name, wall: board.wall, createdAt: board.createdAt.toISOString() };
 }
 
 export async function loadParticipants(exec: Executor, boardId: number): Promise<Participant[]> {
@@ -199,6 +210,7 @@ export async function loadBoardView(exec: Executor, board: BoardRow): Promise<Bo
   return {
     slug: board.slug,
     name: board.name,
+    wall: board.wall,
     meeting: {
       number: meeting.number,
       status: meeting.status === "running" ? "running" : "planned",

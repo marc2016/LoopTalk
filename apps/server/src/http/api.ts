@@ -5,9 +5,9 @@ import {
   createCardSchema,
   focusSchema,
   meetingVersionSchema,
-  renameBoardSchema,
   setParticipantSchema,
   setRolesSchema,
+  updateBoardSchema,
   updateCardSchema,
   type UserRef,
 } from "@looptalk/shared";
@@ -71,8 +71,8 @@ export function apiRoutes({ db, services, hub }: { db: Db; services: Services; h
   });
 
   board.patch("/", async (req, res) => {
-    const { name } = parseBody(renameBoardSchema, req.body);
-    res.json(await services.boards.rename(currentBoard(res), currentUser(req).id, name));
+    const input = parseBody(updateBoardSchema, req.body);
+    res.json(await services.boards.update(currentBoard(res), currentUser(req).id, input));
   });
 
   board.post("/cards", async (req, res) => {

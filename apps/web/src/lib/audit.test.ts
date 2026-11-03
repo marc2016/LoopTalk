@@ -21,6 +21,12 @@ describe("describeAudit", () => {
     expect(result.details).toEqual(["Titel: „Release“ → „Release-Planung“"]);
   });
 
+  it("nennt beim Wandwechsel beide Wände mit Namen", () => {
+    const result = describeAudit(entry("board.wall_changed", { before: { wall: "paper" }, after: { wall: "cork" } }));
+    expect(result.text).toBe("hat die Wand von Papier auf Kork gestellt");
+    expect(result.details).toEqual([]);
+  });
+
   it("nennt beim Bearbeiten die Farbe mit Namen", () => {
     const result = describeAudit(
       entry("card.updated", { title: "Budget", before: { color: "yellow" }, after: { color: "blue" } }),

@@ -58,3 +58,22 @@ describe("0004: Zettelfarbe", () => {
     );
   });
 });
+
+describe("0005: Wand des Boards", () => {
+  it("macht bestehende Boards zu Papier und erlaubt nur die drei Wände", async () => {
+    const s = services(t.db);
+    const anna = await createUser(t.db, "Anna");
+    const { slug } = await s.boards.create(anna, "Board");
+    // Stand vor der Migration: keine Wandspalte.
+    await t.pool.query(`ALTER TABLE "boards" DROP COLUMN "wall"`);
+
+    await t.pool.query(migration("0005_board_wall.sql"));
+
+    const board = await s.boards.open(slug, anna);
+    expect(board.wall).toBe("paper");
+    expect((await s.boards.view(board)).wall).toBe("paper");
+    await expect(t.pool.query(`UPDATE "boards" SET "wall" = 'beton' WHERE "id" = $1`, [board.id])).rejects.toThrow(
+      /boards_wall_check/,
+    );
+  });
+});

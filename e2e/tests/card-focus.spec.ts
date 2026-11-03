@@ -170,12 +170,12 @@ test("Gemeinsamer Fokus: zeigen, lokal schließen, wechseln, nicht unterbrechen,
   const carla = await login(browser, "carla@example.com", path);
   await expect(focusSheet(carla).getByTestId("focus-by")).toHaveText(/Anna zeigt$/);
 
-  // Anderer Dialog offen (Board umbenennen): keine Unterbrechung, danach öffnet sich der Fokus
+  // Anderer Dialog offen (Board bearbeiten): keine Unterbrechung, danach öffnet sich der Fokus
   await closeSheet(ben);
-  await ben.getByRole("button", { name: "Board umbenennen" }).click();
+  await ben.getByRole("button", { name: "Board bearbeiten" }).click();
   await closeSheet(anna);
   await showToAll(anna, "Budget");
-  await expect(ben.getByRole("dialog", { name: "Board umbenennen" })).toBeVisible();
+  await expect(ben.getByRole("dialog", { name: "Board bearbeiten" })).toBeVisible();
   await expect(focusSheet(ben)).toHaveCount(0);
   await ben.keyboard.press("Escape");
   await expect(focusSheet(ben).getByRole("heading", { name: "Budget" })).toBeVisible();

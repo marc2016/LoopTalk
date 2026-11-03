@@ -1,5 +1,5 @@
 import type { Column } from "@looptalk/shared";
-import { ArchiveIcon, ChevronRightIcon, PlusIcon } from "lucide-react";
+import { ArchiveIcon, PlusIcon } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { CardSheet, type SheetMode } from "@/components/card-sheet";
@@ -100,108 +100,106 @@ export function BoardPage() {
         />
       )}
 
-      <div ref={boardRef} className="grid gap-4 md:grid-cols-3" data-previewing={previewing || undefined}>
+      {/* Eine Wand für alle drei Spalten: Etiketten, Trennlinien, Schein und Ablage statt Kästen */}
+      <div
+        ref={boardRef}
+        className="wall grid rounded-xl p-4 md:grid-cols-3 md:p-5"
+        data-testid="board-wall"
+        data-wall={board.wall}
+        data-previewing={previewing || undefined}
+      >
         {columns.map((column) => {
           const life = lifecycle(column, meeting.number);
           const cards = board.cards.filter((c) => c.column === column);
           const last = column === 3;
           return (
-            <div key={column} className="relative">
-              <section
-                aria-label={life.title}
-                data-testid={`column-${column}`}
-                className={cn(
-                  "note-surface flex h-full flex-col gap-3.5 rounded-xl p-3 md:min-h-72",
-                  last ? "bg-last-round" : "bg-column",
-                )}
-              >
-                <header className="flex min-h-10 items-center gap-2.5 px-0.5">
-                  <span
-                    className={cn(
-                      "flex size-7 shrink-0 items-center justify-center rounded-full border-2 bg-card text-xs font-semibold tabular-nums",
-                      last ? "border-last-round-accent text-last-round-foreground" : "border-primary/40 text-primary",
-                    )}
-                    aria-hidden
-                  >
-                    {column}
-                  </span>
-                  <div className="min-w-0">
-                    <h2 className="text-sm leading-tight font-semibold">
-                      {life.title}{" "}
-                      <span className="font-normal text-muted-foreground tabular-nums">({cards.length})</span>
-                    </h2>
-                    <p
-                      className={cn(
-                        "text-xs tabular-nums",
-                        last ? "font-medium text-last-round-foreground" : "text-muted-foreground",
-                      )}
-                      data-testid="column-until"
-                    >
-                      {life.until}
-                    </p>
-                  </div>
-                  <div className="ml-auto flex items-center">
-                    {column === 1 && (
-                      <Button size="sm" variant="ghost" onClick={() => setSheet({ mode: "create", cardId: null })}>
-                        <PlusIcon aria-hidden />
-                        Thema
-                      </Button>
-                    )}
-                    {last && (
-                      <span
-                        className={cn(
-                          "flex items-center gap-1 text-xs",
-                          previewing ? "font-medium text-last-round-foreground" : "text-muted-foreground",
-                        )}
-                      >
-                        <ChevronRightIcon className="size-3.5" aria-hidden />
-                        <ArchiveIcon className="size-3.5" aria-hidden />
-                        Archiv
-                      </span>
-                    )}
-                  </div>
-                </header>
-
-                {/* Zettel quadratisch, je zwei nebeneinander */}
-                <div className="grid grid-cols-2 gap-3" data-testid="note-grid">
-                  {cards.map((card) => (
-                    <TopicCard
-                      key={card.id}
-                      card={card}
-                      meetingNumber={meeting.number}
-                      preview={previewFor(column)}
-                      landing={landing.has(card.id)}
-                      onLanded={() => landed(card.id)}
-                      onOpen={() => setSheet({ mode: "view", cardId: card.id })}
-                    />
-                  ))}
-                  {cards.length === 0 && (
-                    <p className="col-span-2 rounded-lg border border-dashed border-border px-3 py-6 text-center text-sm text-muted-foreground">
-                      {column === 1 ? "Noch keine neuen Themen." : "Keine Themen in dieser Runde."}
-                    </p>
-                  )}
-                </div>
-              </section>
-
-              {/* Verbindung zum nächsten Schritt: auf dem Desktop im Spaltenabstand, mobil als Linie */}
-              {!last && (
-                <>
-                  <span
-                    className={cn(
-                      "absolute top-6 -right-4 z-10 hidden w-4 justify-center transition-colors md:flex",
-                      previewing ? "text-primary motion-safe:animate-nudge" : "text-muted-foreground/60",
-                    )}
-                    aria-hidden
-                  >
-                    <ChevronRightIcon className="size-4" />
-                  </span>
-                  <span
-                    className={cn("mt-2 -mb-2 ml-[1.55rem] block h-4 w-0.5 md:hidden", previewing ? "bg-primary" : "bg-border")}
-                    aria-hidden
-                  />
-                </>
+            <section
+              key={column}
+              aria-label={life.title}
+              data-testid={`column-${column}`}
+              data-last-round={last || undefined}
+              className={cn(
+                "relative isolate flex flex-col gap-4 md:min-h-80",
+                column > 1 && "mt-6 border-t border-wall-line pt-6 md:mt-0 md:border-t-0 md:border-l md:pt-0 md:pl-5",
+                !last && "md:pr-5",
               )}
-            </div>
+            >
+              <header className="flex min-h-10 flex-wrap items-start gap-x-3 gap-y-1">
+                <div className="min-w-0">
+                  <div className="wall-label" data-column={column} data-last-round={last || undefined}>
+                    <span
+                      className={cn(
+                        "flex size-6 shrink-0 items-center justify-center rounded-full border-2 bg-card text-xs font-semibold tabular-nums",
+                        last ? "border-last-round-accent text-last-round-foreground" : "border-primary/40 text-primary",
+                      )}
+                      aria-hidden
+                    >
+                      {column}
+                    </span>
+                    <h2 className="text-sm leading-none font-semibold">{life.title}</h2>
+                    <span
+                      className={cn(
+                        "flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-[0.7rem] font-semibold tabular-nums",
+                        last ? "bg-last-round-foreground/15 text-last-round-foreground" : "bg-foreground/8 text-foreground",
+                      )}
+                      data-testid="column-count"
+                    >
+                      <span className="sr-only">Themen: </span>
+                      {cards.length}
+                    </span>
+                  </div>
+                  <p
+                    className={cn(
+                      "mt-1.5 px-1 text-xs tabular-nums",
+                      last ? "font-medium text-last-round-foreground" : "text-wall-muted",
+                    )}
+                    data-testid="column-until"
+                  >
+                    {life.until}
+                  </p>
+                </div>
+                {column === 1 && (
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="ml-auto"
+                    onClick={() => setSheet({ mode: "create", cardId: null })}
+                  >
+                    <PlusIcon aria-hidden />
+                    Thema
+                  </Button>
+                )}
+              </header>
+
+              {last && <span className="wall-glow" aria-hidden />}
+
+              {/* Zettel quadratisch, je zwei nebeneinander */}
+              <div className="grid grid-cols-2 gap-4" data-testid="note-grid">
+                {cards.map((card) => (
+                  <TopicCard
+                    key={card.id}
+                    card={card}
+                    meetingNumber={meeting.number}
+                    preview={previewFor(column)}
+                    landing={landing.has(card.id)}
+                    onLanded={() => landed(card.id)}
+                    onOpen={() => setSheet({ mode: "view", cardId: card.id })}
+                  />
+                ))}
+                {cards.length === 0 && (
+                  <p className="note-ghost" data-testid="note-ghost">
+                    {column === 1 ? "Noch keine neuen Themen." : "Keine Themen in dieser Runde."}
+                  </p>
+                )}
+              </div>
+
+              {last && (
+                <p className="wall-tray" data-testid="archive-tray">
+                  <ArchiveIcon className="size-3.5" aria-hidden />
+                  Archiv
+                </p>
+              )}
+            </section>
           );
         })}
       </div>

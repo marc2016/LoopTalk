@@ -261,6 +261,22 @@ describe("Boards und Karten", () => {
     expect(res.body.name).toBe("Neuer Name");
   });
 
+  it("Wand des Boards: setzen, ablehnen, im Audit-Log", async () => {
+    expect((await anna.get(`/api/boards/${slug}`).expect(200)).body.wall).toBe("paper");
+    const res = await ben.patch(`/api/boards/${slug}`, { wall: "cork" }).expect(200);
+    expect(res.body.wall).toBe("cork");
+    expect((await anna.get(`/api/boards/${slug}`).expect(200)).body.wall).toBe("cork");
+    await ben.patch(`/api/boards/${slug}`, { wall: "beton" }).expect(400);
+    await ben.patch(`/api/boards/${slug}`, {}).expect(400);
+    const page = (await anna.get(`/api/boards/${slug}/audit?action=board.wall_changed`).expect(200)).body;
+    expect(page.entries).toContainEqual(
+      expect.objectContaining({
+        actor: expect.objectContaining({ name: "Ben" }),
+        data: { before: { wall: "paper" }, after: { wall: "cork" } },
+      }),
+    );
+  });
+
   it("Live-Stream liefert Anwesenheit und Board-Events", async () => {
     const server = app.listen(0);
     const { port } = server.address() as AddressInfo;

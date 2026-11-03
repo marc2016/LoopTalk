@@ -1,4 +1,5 @@
 import { type RefObject, useLayoutEffect, useRef } from "react";
+import { fallTarget } from "./fall-target";
 
 const DURATION_MS = 650;
 const EASING = "cubic-bezier(0.2, 0.7, 0.2, 1)";
@@ -14,7 +15,8 @@ const prefersReducedMotion = () =>
  * Ausgelöst wird nur, wenn die Terminnummer steigt, egal ob die neuen Daten über die
  * eigene Mutation oder über ein Live-Event kommen. Nach jedem Rendern werden die
  * Positionen aller Karten (`[data-card-id]`) gemerkt; archivierte Karten fehlen danach
- * im DOM und werden als Klon an ihrer alten Stelle ausgeblendet.
+ * im DOM und werden als Klon an ihrer alten Stelle ausgeblendet; sie fallen in die
+ * Archiv-Ablage (`[data-testid="archive-tray"]`), wenn diese sichtbar ist.
  */
 export function useCardShift(
   container: RefObject<HTMLElement | null>,
@@ -78,6 +80,8 @@ function slide(elements: HTMLElement[], before: Map<string, DOMRect>) {
 
 function fall(gone: [string, HTMLElement][], before: Map<string, DOMRect>) {
   if (gone.length === 0) return;
+  const tray = document.querySelector('[data-testid="archive-tray"]')?.getBoundingClientRect() ?? null;
+  const viewport = { width: window.innerWidth, height: window.innerHeight };
   const layer = document.createElement("div");
   layer.setAttribute("aria-hidden", "true");
   Object.assign(layer.style, { position: "fixed", inset: "0", pointerEvents: "none", zIndex: "30" });
@@ -96,12 +100,13 @@ function fall(gone: [string, HTMLElement][], before: Map<string, DOMRect>) {
     clone.removeAttribute("data-testid");
     clone.tabIndex = -1;
     layer.append(clone);
+    const { dx, dy } = fallTarget(rect, tray, viewport);
     clone.animate(
       [
-        { opacity: 1, transform: "translate(0, 0) rotate(0deg)" },
-        // Erst löst sich der Zettel oben, dann kippt er und fällt.
-        { opacity: 1, transform: "translate(4px, -6px) rotate(-3deg)", offset: 0.25 },
-        { opacity: 0, transform: "translate(40px, 140px) rotate(16deg)" },
+        { opacity: 1, transform: "translate(0, 0) rotate(0deg) scale(1)" },
+        // Erst löst sich der Zettel oben, dann kippt er und fällt in die Ablage.
+        { opacity: 1, transform: "translate(4px, -6px) rotate(-3deg) scale(1)", offset: 0.25 },
+        { opacity: 0, transform: `translate(${dx}px, ${dy}px) rotate(16deg) scale(0.6)` },
       ],
       { duration: DURATION_MS, easing: "cubic-bezier(0.5, 0, 0.75, 0)", fill: "forwards" },
     );

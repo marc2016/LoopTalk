@@ -16,7 +16,14 @@ export const boardNameSchema = z
   .max(100, "Der Name darf höchstens 100 Zeichen lang sein.");
 
 export const createBoardSchema = z.strictObject({ name: boardNameSchema });
-export const renameBoardSchema = createBoardSchema;
+
+/** Wände eines Boards; gespeichert wird der Name, das Aussehen liegt im Frontend. */
+export const BOARD_WALLS = ["paper", "cork", "whiteboard"] as const;
+export const boardWallSchema = z.enum(BOARD_WALLS, "Unbekannte Wand.");
+
+export const updateBoardSchema = z
+  .strictObject({ name: boardNameSchema.optional(), wall: boardWallSchema.optional() })
+  .refine((v) => v.name !== undefined || v.wall !== undefined, { message: "Keine Änderung angegeben." });
 
 export const cardTitleSchema = z
   .string()
@@ -75,6 +82,7 @@ export const focusSchema = z.strictObject({ cardId: id });
 export const auditActions = [
   "board.created",
   "board.renamed",
+  "board.wall_changed",
   "member.joined",
   "member.activated",
   "member.deactivated",
@@ -99,6 +107,7 @@ export const auditQuerySchema = z.object({
 });
 
 export type CreateBoardInput = z.infer<typeof createBoardSchema>;
+export type UpdateBoardInput = z.infer<typeof updateBoardSchema>;
 export type CreateCardInput = z.input<typeof createCardSchema>;
 export type UpdateCardInput = z.infer<typeof updateCardSchema>;
 export type AddPersonInput = z.infer<typeof addPersonSchema>;
@@ -121,9 +130,12 @@ export interface Me extends UserRef {
   email: string | null;
 }
 
+export type BoardWall = (typeof BOARD_WALLS)[number];
+
 export interface BoardSummary {
   slug: string;
   name: string;
+  wall: BoardWall;
   createdAt: string;
 }
 
@@ -173,6 +185,7 @@ export interface Participant extends UserRef {
 export interface BoardView {
   slug: string;
   name: string;
+  wall: BoardWall;
   meeting: CurrentMeeting;
   cards: CardView[];
   participants: Participant[];
