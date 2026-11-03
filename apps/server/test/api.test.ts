@@ -80,7 +80,8 @@ const as = (cookie: string) => ({
 describe("Zugriff nur mit Login", () => {
   it("Health-Check ist öffentlich und ohne Daten", async () => {
     const res = await request(app).get("/healthz").expect(200);
-    expect(res.body).toEqual({ status: "ok" });
+    const { version } = JSON.parse(fs.readFileSync(new URL("../package.json", import.meta.url), "utf8"));
+    expect(res.body).toEqual({ status: "ok", version });
   });
 
   it.each(["/api/me", "/api/boards", "/api/boards/abc", "/api/boards/abc/events", "/api/unbekannt"])(

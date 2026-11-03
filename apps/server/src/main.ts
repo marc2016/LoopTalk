@@ -1,12 +1,28 @@
 import { createDexClient } from "./auth/oidc";
 import { loadConfig } from "./config";
 import { createDb } from "./db/client";
+import { runMigrations } from "./db/migrations";
+import { waitForDatabase } from "./db/wait";
 import { createApp } from "./http/app";
 import { RealtimeHub } from "./realtime/hub";
 import { createServices } from "./services";
 
 const config = loadConfig();
 const { db, pool } = createDb(config.DATABASE_URL);
+
+// Erst die Datenbank, dann Dex: Ohne aktuelles Schema nimmt der Server keine Anfragen an.
+try {
+  await waitForDatabase(pool);
+  if (config.MIGRATE_ON_START) {
+    await runMigrations(db);
+    console.log("Migrationen ausgeführt.");
+  }
+} catch (err) {
+  console.error(err);
+  await pool.end().catch(() => {});
+  process.exit(1);
+}
+
 const hub = new RealtimeHub();
 const services = createServices({ db, notifier: hub, rng: Math.random, now: () => new Date() });
 

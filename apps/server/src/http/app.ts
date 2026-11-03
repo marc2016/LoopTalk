@@ -10,6 +10,7 @@ import type { Db } from "../db/client";
 import { AppError } from "../errors";
 import type { RealtimeHub } from "../realtime/hub";
 import type { Services } from "../services";
+import { appVersion } from "../version";
 import { apiRoutes } from "./api";
 
 export interface AppDeps {
@@ -59,7 +60,7 @@ export function createApp(deps: AppDeps): express.Express {
   app.set("trust proxy", 1);
 
   app.get("/healthz", (_req, res) => {
-    res.json({ status: "ok" });
+    res.json({ status: "ok", version: appVersion });
   });
 
   app.use(

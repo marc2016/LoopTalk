@@ -1,0 +1,107 @@
+# Tests bei jedem Push auf main, bei Pull Requests und bei Release-Tags.
+# Nur bei einem Tag vX.Y.Z und nur nach grünen Tests: Image nach GHCR und GitHub-Release.
+name: CI
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+    branches: [main]
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_NODE_TYPE: node24
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository_owner }}/looptalk
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref_type != 'tag' }}
+
+jobs:
+  test:
+    name: Lint, Typen, Unit- und Integrationstests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Tests in Docker
+        run: docker compose -f compose.test.yaml run --rm --build test
+      - name: Aufräumen
+        if: always()
+        run: docker compose -f compose.test.yaml down -v --remove-orphans
+
+  e2e:
+    name: Ende-zu-Ende-Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Playwright gegen Produktions-Image, Dex und PostgreSQL
+        run: docker compose -f compose.test.yaml run --rm --build e2e
+      - name: Logs der App
+        if: failure()
+        run: docker compose -f compose.test.yaml logs looptalk
+      - name: Screenshots und Traces hochladen
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-results
+          path: |
+            e2e/test-results/
+            e2e/playwright-report/
+          retention-days: 14
+      - name: Aufräumen
+        if: always()
+        run: docker compose -f compose.test.yaml down -v --remove-orphans
+
+  publish:
+    name: Image nach GHCR
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [test, e2e]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - name: Login GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Tags und Labels
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=raw,value=latest
+          labels: |
+            org.opencontainers.image.title=LoopTalk
+            org.opencontainers.image.description=Online-Tool für regelmäßige Austauschtermine
+      - name: Bauen und veröffentlichen
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          target: runtime
+          platforms: linux/amd64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  release:
+    name: GitHub-Release
+    needs: publish
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Release mit automatischen Notizen
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release create "${{ github.ref_name }}" --repo "${{ github.repository }}" --title "${{ github.ref_name }}" --generate-notes

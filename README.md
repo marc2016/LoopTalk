@@ -86,14 +86,50 @@ Bei Fehlschlägen der Ende-zu-Ende-Tests liegen Screenshots und Traces unter
 
 ## Betrieb
 
+LoopTalk gibt es als fertiges Image `ghcr.io/marc2016/looptalk` (`linux/amd64`) mit
+den Tags `X.Y.Z`, `X.Y` und `latest`. Auf dem Server reichen `compose.prod.yaml`,
+eine `.env` und optional die Dex-Konfiguration; der Quellcode wird nicht gebraucht.
+
 ```bash
 cp .env.example .env      # Werte eintragen
-docker compose -f compose.prod.yaml up -d --build
+docker compose -f compose.prod.yaml up -d
 ```
 
-Vor jedem Start der App führt der Dienst `migrate` die Datenbank-Migrationen aus.
-Die App lauscht nur auf `127.0.0.1:3000`; davor gehört ein Reverse Proxy mit TLS.
-Das Image läuft als Nicht-root-Benutzer und hat einen Healthcheck auf `/healthz`.
+Die App wartet beim Start bis zu 60 Sekunden auf die Datenbank, führt ausstehende
+Migrationen aus und nimmt erst danach Anfragen an. Sie lauscht nur auf
+`127.0.0.1:3000`; davor gehört ein Reverse Proxy mit TLS. Das Image läuft als
+Nicht-root-Benutzer und hat einen Healthcheck auf `/healthz`, der auch die
+laufende Version zeigt:
+
+```bash
+curl -s 127.0.0.1:3000/healthz    # {"status":"ok","version":"1.0.0"}
+```
+
+**Update:** `LOOPTALK_VERSION` in der `.env` setzen (oder `latest` lassen), dann
+
+```bash
+docker compose -f compose.prod.yaml pull
+docker compose -f compose.prod.yaml up -d
+```
+
+Migrationen lassen sich nicht zurückdrehen. Vor einem Update deshalb ein Backup
+anlegen, z. B. `docker compose -f compose.prod.yaml exec db pg_dump -U looptalk looptalk > backup.sql`.
+Zurück auf eine Vorversion geht über `LOOPTALK_VERSION`, solange die neuere Version
+keine Migration mitgebracht hat; sonst nur mit dem Backup.
+
+**Selbst bauen:** Im ausgecheckten Repository baut
+`docker compose -f compose.prod.yaml up -d --build` das Image aus dem Quellcode.
+
+**Ohne Compose:** Läuft PostgreSQL schon, genügt ein einzelner Container:
+
+```bash
+docker run -d -p 127.0.0.1:3000:3000 --env-file .env \
+  -e DATABASE_URL=postgres://looptalk:<passwort>@<host>:5432/looptalk \
+  ghcr.io/marc2016/looptalk:latest
+```
+
+Soll die Migration getrennt laufen (z. B. als Init-Job), `MIGRATE_ON_START=false`
+setzen und vorher `node dist/migrate.js` aus demselben Image ausführen.
 
 ### Konfiguration
 
@@ -107,6 +143,8 @@ Das Image läuft als Nicht-root-Benutzer und hat einen Healthcheck auf `/healthz
 | `DEX_INTERNAL_URL` | Optional: interne Adresse von Dex, falls der Server Dex nicht unter `DEX_ISSUER` erreicht |
 | `OIDC_CLIENT_ID` | Client-ID in Dex, Standard `looptalk` |
 | `OIDC_CLIENT_SECRET` | Client-Secret in Dex |
+| `LOOPTALK_VERSION` | Nur Compose: Version des Images, Standard `latest` |
+| `MIGRATE_ON_START` | `false`, wenn die Migration nicht beim Start laufen soll (Standard `true`) |
 
 Geheimnisse gehören in die `.env` auf dem Server oder in einen Secret-Store, nie
 ins Repository oder ins Image.
@@ -154,6 +192,27 @@ location / {
 Live-Updates und Anwesenheit laufen im Prozess; betreibe daher genau eine Instanz
 der App.
 
+## Release
+
+```bash
+./release.sh            # fragt nach patch, minor oder major
+./release.sh minor      # oder direkt: patch, minor, major, X.Y.Z
+```
+
+Das Skript läuft nur auf einem sauberen `main`, der dem Stand von `origin/main`
+entspricht. Es führt die Tests und die Ende-zu-Ende-Tests in Docker aus
+(`--skip-tests` überspringt sie), setzt die Version in allen Paketen, committet
+„Release vX.Y.Z“, legt den Tag `vX.Y.Z` an und pusht nach Rückfrage.
+
+GitHub Actions ([ci.yml](.github/workflows/ci.yml)) testet jeden Push auf `main` und
+jeden Pull Request. Bei einem Tag `vX.Y.Z` baut der Workflow nach grünen Tests das
+Image, veröffentlicht es als `X.Y.Z`, `X.Y` und `latest` und legt ein GitHub-Release
+mit automatisch erzeugten Notizen an. Ist ein Test rot, entsteht kein Image; dann
+den Fehler beheben und eine neue Patch-Version releasen.
+
+Nach der allerersten Veröffentlichung das Paket `looptalk` unter
+GitHub → Packages einmalig auf „Public“ stellen, damit es ohne Login abrufbar ist.
+
 ## Projektstruktur
 
 ```text
@@ -161,6 +220,8 @@ apps/server     Express-Backend: Domänenlogik, Datenbank, Auth, API, Live-Updat
 apps/web        React-Frontend mit shadcn/ui
 packages/shared gemeinsame API-Typen und zod-Schemas
 e2e             Playwright-Tests
+release.sh      Release vorbereiten (Version, Tag, Push)
+.github         GitHub Actions: Tests, Image, Release
 docker          Dex-Konfigurationen für Entwicklung und Tests
 openspec        Anforderungen, Design und Aufgaben (OpenSpec)
 ```

@@ -23,4 +23,18 @@ describe("loadConfig", () => {
     expect(load).toThrow(/SESSION_SECRET: SESSION_SECRET muss mindestens 32 Zeichen lang sein/);
     expect(load).toThrow(/BASE_URL:/);
   });
+
+  it("migriert standardmäßig beim Start", () => {
+    expect(loadConfig(env).MIGRATE_ON_START).toBe(true);
+    expect(loadConfig({ ...env, MIGRATE_ON_START: "" }).MIGRATE_ON_START).toBe(true);
+  });
+
+  it("liest MIGRATE_ON_START als Schalter", () => {
+    expect(loadConfig({ ...env, MIGRATE_ON_START: "true" }).MIGRATE_ON_START).toBe(true);
+    expect(loadConfig({ ...env, MIGRATE_ON_START: "false" }).MIGRATE_ON_START).toBe(false);
+  });
+
+  it("lehnt ungültige Werte für MIGRATE_ON_START ab", () => {
+    expect(() => loadConfig({ ...env, MIGRATE_ON_START: "vielleicht" })).toThrow(/MIGRATE_ON_START:/);
+  });
 });

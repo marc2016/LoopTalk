@@ -1,5 +1,8 @@
 # Betrieb: cp .env.example .env  (Werte eintragen), dann
-#   docker compose -f compose.prod.yaml up -d --build
+#   docker compose -f compose.prod.yaml up -d
+# Das Image kommt aus GHCR; die Version wählt LOOPTALK_VERSION (Standard latest).
+# Aus dem Quellcode bauen: docker compose -f compose.prod.yaml up -d --build
+# Die App wartet beim Start auf die Datenbank und führt die Migrationen selbst aus.
 # Die App lauscht nur auf 127.0.0.1:3000; davor gehört ein Reverse Proxy mit TLS.
 # Optional Dex mitstarten: --profile dex (Konfiguration in ./docker/dex.yaml anlegen).
 name: looptalk
@@ -15,24 +18,15 @@ x-app-env: &app-env
 
 services:
   app:
-    image: looptalk:latest
+    image: ghcr.io/marc2016/looptalk:${LOOPTALK_VERSION:-latest}
+    # Nur für --build aus dem Quellcode; ohne --build wird das Image aus GHCR geladen.
     build: { context: ., target: runtime }
     environment: *app-env
     ports:
       - "127.0.0.1:3000:3000"
     depends_on:
-      migrate: { condition: service_completed_successfully }
-    restart: unless-stopped
-
-  # Einmaliger Job vor jedem App-Start: Datenbank auf den aktuellen Stand bringen.
-  migrate:
-    image: looptalk:latest
-    build: { context: ., target: runtime }
-    command: ["node", "dist/migrate.js"]
-    environment: *app-env
-    depends_on:
       db: { condition: service_healthy }
-    restart: "no"
+    restart: unless-stopped
 
   db:
     image: postgres:17-alpine

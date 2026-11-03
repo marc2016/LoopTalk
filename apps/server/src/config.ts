@@ -17,6 +17,11 @@ const envSchema = z.object({
   OIDC_CLIENT_SECRET: z.string().min(1),
   /** Verzeichnis mit dem gebauten Frontend; leer in der Entwicklung (Vite liefert aus). */
   STATIC_DIR: z.string().optional(),
+  /**
+   * Migrationen beim Start ausführen (Standard). `false`, wenn die Migration separat
+   * läuft, z. B. als Init-Job mit `node dist/migrate.js`.
+   */
+  MIGRATE_ON_START: z.stringbool().default(true),
 });
 
 export type Config = z.infer<typeof envSchema>;

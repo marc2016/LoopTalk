@@ -39,24 +39,17 @@ services:
   looptalk:
     image: looptalk-test-app
     build: { context: ., target: runtime }
-    environment: &app-env
+    environment:
       BASE_URL: http://looptalk:3000
       DATABASE_URL: postgres://looptalk:looptalk@db-e2e:5432/looptalk
       SESSION_SECRET: e2e-only-secret-0123456789abcdef0123456789
       DEX_ISSUER: http://dex:5556/dex
       OIDC_CLIENT_ID: looptalk
       OIDC_CLIENT_SECRET: looptalk-dev-secret
-    depends_on:
-      migrate: { condition: service_completed_successfully }
-      dex: { condition: service_started }
-
-  migrate:
-    image: looptalk-test-app
-    build: { context: ., target: runtime }
-    command: ["node", "dist/migrate.js"]
-    environment: *app-env
+    # Die App wartet selbst auf die Datenbank und migriert beim Start.
     depends_on:
       db-e2e: { condition: service_healthy }
+      dex: { condition: service_started }
 
   db-e2e:
     image: postgres:17-alpine
